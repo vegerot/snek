@@ -4,7 +4,7 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
     const exe = b.addExecutable(.{
-        .name = "bricks",
+        .name = "snek",
         .root_source_file = b.path("snek.zig"),
         .target = target,
         .optimize = optimize,
