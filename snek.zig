@@ -36,9 +36,9 @@ fn buildEnumFromC(comptime import: anytype, comptime prefix: []const u8) type {
 
 const Key = buildEnumFromC(raylib, "KEY");
 
-fn Game(size: u32) type {
+fn Game(maxSize: u32) type {
     const game = struct {
-        snake: Snake(size),
+        snake: Snake(maxSize),
     };
     return game;
 }
@@ -46,7 +46,7 @@ fn Game(size: u32) type {
 fn Snake(size: u32) type {
     const snake = struct {
         // TODO: make this a rope / linked list thingy
-        positions: [size]raylib.Vector2,
+        segments: [size]raylib.Vector2,
         len: u16,
     };
     return snake;
@@ -62,20 +62,24 @@ pub fn main() void {
     raylib.SetTargetFPS(raylib.GetMonitorRefreshRate(raylib.GetCurrentMonitor()));
     raylib.SetTargetFPS(2);
 
-    var game: Game(4) = .{ .snake = .{ .len = 4, .positions = undefined } };
-    for (game.snake.positions[0..game.snake.len], 0..) |*pos, i| {
-        pos.* = .{ .x = @floatFromInt(10 * (game.snake.len - i)), .y = @floatFromInt(0) };
+    var game: Game(2) = .{ .snake = .{ .len = 2, .segments = undefined } };
+    for (game.snake.segments[0..game.snake.len], 0..) |*seg, i| {
+        seg.* = .{ .x = @floatFromInt(100 * (game.snake.len - i)), .y = @floatFromInt(0) };
     }
-    const snake_rec_size: raylib.Vector2 = .{ .x = 10, .y = 10 };
-    const speed = 50;
+    const snake_seg_size: raylib.Vector2 = .{ .x = 100, .y = 100 };
+    const speed = 100;
     var dir: Dir = .right;
+    var f: i32 = 0;
     while (!raylib.WindowShouldClose()) {
         // UPDATE
+        f += 1;
+        std.debug.print("\n**FRAME {}\n", .{f});
+        defer std.debug.print("---------\n", .{});
 
         // / input
-        if (raylib.IsKeyDown(raylib.KEY_DOWN)) {
-            dir = .down;
-            std.debug.print("DOWN: \n", .{});
+        if (raylib.IsKeyPressed(raylib.KEY_DOWN)) {
+            dir = if (dir != .down) .down else .up;
+            std.debug.print("    @@@DOWN@@@: \n", .{});
         } else if (raylib.IsKeyDown(raylib.KEY_UP)) {
             dir = .up;
         } else if (raylib.IsKeyDown(raylib.KEY_LEFT)) {
@@ -84,49 +88,43 @@ pub fn main() void {
             dir = .right;
         }
 
-        std.debug.print("**all***: {any}\n", .{game.snake.positions});
         const dt = raylib.GetFrameTime();
         var i = game.snake.len;
         while (i > 1) {
             i -= 1;
 
-            const curr = &game.snake.positions[i];
-            const prev = game.snake.positions[i - 1];
-            const diff = raylib.Vector2Subtract(prev, curr.*);
-            const v: raylib.Vector2 = if (diff.x > 0) dist: {
-                break :dist .{
-                    .x = speed,
-                    .y = 0,
-                };
-            } else if (diff.x < 0) .{
-                .x = -speed,
-                .y = 0,
-            } else if (diff.y > 0) .{
-                .x = 0,
-                .y = speed,
-            } else .{
-                .x = 0,
-                .y = -speed,
+            const tail = &game.snake.segments[i];
+            const head = game.snake.segments[i - 1];
+            std.debug.print("    head: {any}, tail: {any}\n", .{ head, tail.* });
+            const diff = raylib.Vector2Subtract(head, tail.*);
+            if (diff.x != 0 and diff.y != 0) {
+                std.debug.print("    😠fuck\n", .{});
+            }
+            const v = raylib.Vector2Scale(raylib.Vector2Normalize(diff), speed);
+            const distanceMoved: raylib.Vector2 = .{ .x = v.x * dt, .y = v.y * dt };
+            tail.* = raylib.Vector2Add(tail.*, distanceMoved);
+            std.debug.print("    **head***: {any}, tail: {any}\n", .{ head, tail });
+            std.debug.print("    diff.x: {d}, diff.y: {d}\n    distancedMoved: {}, newcurr: {}\n", .{ diff.x, diff.y, distanceMoved, tail });
+        }
+        {
+            const v: raylib.Vector2 = switch (dir) {
+                .left => .{ .x = -speed, .y = 0 },
+                .right => .{ .x = speed, .y = 0 },
+                .up => .{ .x = 0, .y = -speed },
+                .down => .{ .x = 0, .y = speed },
             };
             const distanceMoved: raylib.Vector2 = .{ .x = v.x * dt, .y = v.y * dt };
-            curr.* = raylib.Vector2Add(curr.*, distanceMoved);
-            std.debug.print("diff: {}, distancedMoved: {}, curr: {}\n", .{ diff, distanceMoved, curr });
+            game.snake.segments[0] = raylib.Vector2Add(game.snake.segments[0], distanceMoved);
         }
-        const v: raylib.Vector2 = switch (dir) {
-            .left => .{ .x = -speed, .y = 0 },
-            .right => .{ .x = speed, .y = 0 },
-            .up => .{ .x = 0, .y = -speed },
-            .down => .{ .x = 0, .y = speed },
-        };
-        const distanceMoved: raylib.Vector2 = .{ .x = v.x * dt, .y = v.y * dt };
-        game.snake.positions[0] = raylib.Vector2Add(game.snake.positions[0], distanceMoved);
+
         // DRAW
         raylib.BeginDrawing();
         defer raylib.EndDrawing();
         raylib.ClearBackground(raylib.BLACK);
 
-        for (game.snake.positions[0..game.snake.len]) |pos| {
-            raylib.DrawRectangleV(pos, snake_rec_size, raylib.GREEN);
+        for (game.snake.segments[0..game.snake.len]) |pos| {
+            const segment_rectangle = raylib.Rectangle{ .x = pos.x, .y = pos.y, .width = snake_seg_size.x, .height = snake_seg_size.y };
+            raylib.DrawRectangleLinesEx(segment_rectangle, 1, raylib.GREEN);
         }
     }
 }
