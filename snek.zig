@@ -43,10 +43,11 @@ fn Game(maxSize: u32) type {
     return game;
 }
 
+const XY = @Vector(2, i32);
 fn Snake(size: u32) type {
     const snake = struct {
         // TODO: make this a rope / linked list thingy
-        segments: [size]raylib.Vector2,
+        segments: [size]XY,
         len: u16,
     };
     return snake;
@@ -60,14 +61,11 @@ pub fn main() void {
     raylib.InitWindow(screen.x, screen.y, "snek");
     defer raylib.CloseWindow();
     raylib.SetTargetFPS(raylib.GetMonitorRefreshRate(raylib.GetCurrentMonitor()));
-    raylib.SetTargetFPS(2);
 
     var game: Game(20) = .{ .snake = .{ .len = 10, .segments = undefined } };
     for (game.snake.segments[0..game.snake.len], 0..) |*seg, i| {
-        seg.* = .{ .x = @floatFromInt(100 * (game.snake.len - i)), .y = @floatFromInt(0) };
+        seg.* = .{ @intCast(game.snake.len - i), 0 };
     }
-    const snake_seg_size: raylib.Vector2 = .{ .x = 100, .y = 100 };
-    const speed = 200;
     var dir: Dir = .right;
     var f: i32 = 0;
     while (!raylib.WindowShouldClose()) {
@@ -87,45 +85,48 @@ pub fn main() void {
         } else if (raylib.IsKeyDown(raylib.KEY_RIGHT)) {
             dir = .right;
         }
+        const dirV: XY = switch (dir) {
+            .up => .{ 0, -1 },
+            .down => .{ 0, 1 },
+            .left => .{ -1, 0 },
+            .right => .{ 1, 0 },
+        };
 
-        const dt = 1; //raylib.GetFrameTime();
-        var i = game.snake.len;
-        while (i > 1) {
-            i -= 1;
+        const SCALE = 100;
+        const head = &game.snake.segments[0];
+        const maybeNextHead = head.* + dirV;
+        const isNextHeadInBounds = maybeNextHead[0] >= 0 and maybeNextHead[0] < screen.x / SCALE and maybeNextHead[1] >= 0 and maybeNextHead[1] < screen.y / SCALE;
+        if (isNextHeadInBounds) {
+            var i = game.snake.len;
+            // start from back of snake and work forward
+            while (i > 1) {
+                i -= 1;
 
-            const tail = &game.snake.segments[i];
-            const head = game.snake.segments[i - 1];
-            std.debug.print("\thead: {any}, tail: {any}\n", .{ head, tail.* });
-            const diff = raylib.Vector2Subtract(head, tail.*);
-            if (diff.x != 0 and diff.y != 0) {
-                std.debug.print("\t😠fuck\n", .{});
+                const back = &game.snake.segments[i];
+                const front = game.snake.segments[i - 1];
+
+                back.* = front;
             }
-            const v = raylib.Vector2Scale(raylib.Vector2Normalize(diff), speed);
-            const distanceMoved: raylib.Vector2 = .{ .x = v.x * dt, .y = v.y * dt };
-            tail.* = raylib.Vector2Add(tail.*, distanceMoved);
-            std.debug.print("\t**head***: {any}, tail: {any}\n", .{ head, tail });
-            std.debug.print("\tdiff.x: {d}, diff.y: {d}\n\tdistancedMoved: {}, newcurr: {}\n", .{ diff.x, diff.y, distanceMoved, tail });
+            head.* = maybeNextHead;
+            std.debug.print("\tSNAKE: {any}\n", .{game.snake.segments});
+        } else {
+            std.debug.print("\twall\n", .{});
         }
-        {
-            const v: raylib.Vector2 = switch (dir) {
-                .left => .{ .x = -speed, .y = 0 },
-                .right => .{ .x = speed, .y = 0 },
-                .up => .{ .x = 0, .y = -speed },
-                .down => .{ .x = 0, .y = speed },
-            };
-            const distanceMoved: raylib.Vector2 = .{ .x = v.x * dt, .y = v.y * dt };
-            game.snake.segments[0] = raylib.Vector2Add(game.snake.segments[0], distanceMoved);
-        }
-
         // DRAW
         raylib.BeginDrawing();
         defer raylib.EndDrawing();
         raylib.ClearBackground(raylib.BLACK);
 
-        for (game.snake.segments[0..game.snake.len], 0..) |pos, p| {
+        for (game.snake.segments[0..game.snake.len], 0..) |seg, p| {
             const pp: u8 = @intCast(p);
-            const segment_rectangle = raylib.Rectangle{ .x = pos.x, .y = pos.y, .width = snake_seg_size.x, .height = snake_seg_size.y };
-            raylib.DrawRectangleLinesEx(segment_rectangle, 5, raylib.Color{ .r = std.math.pow(u8, pp, 2) % 0x99, .g = (pp * 2 + 0x49) % 0x99, .b = ((0x99 - pp) * (pp % 2)) % 0x99, .a = 0x99 });
+            const snake_seg_size: raylib.Vector2 = .{ .x = SCALE, .y = SCALE };
+            const segrec = raylib.Rectangle{
+                .x = @floatFromInt(seg[0] * SCALE),
+                .y = @floatFromInt(seg[1] * SCALE),
+                .width = snake_seg_size.x,
+                .height = snake_seg_size.y,
+            };
+            raylib.DrawRectangleLinesEx(segrec, 5, raylib.Color{ .r = std.math.pow(u8, pp, 2) % 0x99, .g = (pp * 2 + 0x49) % 0x99, .b = ((0x99 - pp) * (pp % 2)) % 0x99, .a = 0x99 });
         }
     }
 }
