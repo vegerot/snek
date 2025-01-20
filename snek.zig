@@ -39,11 +39,29 @@ const Key = buildEnumFromC(raylib, "KEY");
 fn Game(maxSize: u32) type {
     const game = struct {
         snake: Snake(maxSize),
+        fruit: XY,
     };
     return game;
 }
 
-const XY = @Vector(2, i32);
+const XY = struct {
+    _data: @Vector(2, i32),
+    fn init(X: i32, Y: i32) XY {
+        return XY{ ._data = @Vector(2, i32){ X, Y } };
+    }
+    fn vec(self: *const @This()) @Vector(2, i32) {
+        return self.*._data;
+    }
+    fn x(self: *@This()) i32 {
+        return self.*._data[0];
+    }
+    fn y(self: *@This()) i32 {
+        return self.*._data[1];
+    }
+    fn toScreenCoords(self: *@This(), scale: i32) raylib.Vector2 {
+        return raylib.Vector2{ .x = @floatFromInt(self.x() * scale), .y = @floatFromInt(self.y() * scale) };
+    }
+};
 fn Snake(maxSize: u32) type {
     const snake = struct {
         // TODO: make this a rope / linked list thingy
@@ -64,9 +82,16 @@ pub fn main() void {
     raylib.SetTargetFPS(raylib.GetMonitorRefreshRate(raylib.GetCurrentMonitor()));
     raylib.SetTargetFPS(24);
 
-    var game: Game(20) = .{ .snake = .{ .maxLen = 20, .len = 10, .segments = undefined } };
+    var game: Game(20) = .{
+        .snake = .{
+            .maxLen = 20,
+            .len = 10,
+            .segments = undefined,
+        },
+        .fruit = XY.init(0, 1),
+    };
     for (game.snake.segments[0..game.snake.len], 0..) |*seg, i| {
-        seg.* = .{ @intCast(game.snake.len - i), 0 };
+        seg.* = XY.init(@intCast(game.snake.len - i), 0);
     }
     var dir: Dir = .right;
     var f: i32 = 0;
@@ -93,15 +118,15 @@ pub fn main() void {
             game.snake.segments[game.snake.len] = game.snake.segments[game.snake.len - 1];
         }
         const dirV: XY = switch (dir) {
-            .up => .{ 0, -1 },
-            .down => .{ 0, 1 },
-            .left => .{ -1, 0 },
-            .right => .{ 1, 0 },
+            .up => XY.init(0, -1),
+            .down => XY.init(0, 1),
+            .left => XY.init(-1, 0),
+            .right => XY.init(1, 0),
         };
 
         const SCALE = 50;
         const head = &game.snake.segments[0];
-        const maybeNextHead = head.* + dirV;
+        const maybeNextHead = head.vec() + dirV.vec();
         const isNextHeadInBounds = maybeNextHead[0] >= 0 and maybeNextHead[0] < screen.x / SCALE and maybeNextHead[1] >= 0 and maybeNextHead[1] < screen.y / SCALE;
         if (isNextHeadInBounds) {
             var i = game.snake.len;
@@ -114,7 +139,7 @@ pub fn main() void {
 
                 back.* = front;
             }
-            head.* = maybeNextHead;
+            head.* = XY.init(maybeNextHead[0], maybeNextHead[1]);
             std.debug.print("\tSNAKE: {any}\n", .{game.snake.segments});
         } else {
             std.debug.print("\twall\n", .{});
@@ -124,16 +149,18 @@ pub fn main() void {
         defer raylib.EndDrawing();
         raylib.ClearBackground(raylib.BLACK);
 
+        const fruitPos = game.fruit.toScreenCoords(SCALE);
+        raylib.DrawRectangleRec(raylib.Rectangle{ .x = fruitPos.x, .y = fruitPos.y }, raylib.GREEN);
         for (game.snake.segments[0..game.snake.len], 0..) |seg, p| {
-            const pp: u8 = @intCast(p);
             const snake_seg_size: raylib.Vector2 = .{ .x = SCALE, .y = SCALE };
+            const segScreen = seg.toScreenCoords(SCALE);
             const segrec = raylib.Rectangle{
-                .x = @floatFromInt(seg[0] * SCALE),
-                .y = @floatFromInt(seg[1] * SCALE),
+                .x = segScreen.x,
+                .y = segScreen.y,
                 .width = snake_seg_size.x,
                 .height = snake_seg_size.y,
             };
-            raylib.DrawRectangleLinesEx(segrec, 5, raylib.Color{ .r = std.math.pow(u8, pp, 2) % 0x99, .g = (pp * 2 + 0x49) % 0x99, .b = ((0x99 - pp) * (pp % 2)) % 0x99, .a = 0x99 });
+            raylib.DrawRectangleRec(segrec, if (p % 2 == 0) raylib.RED else raylib.BLUE);
         }
     }
 }
