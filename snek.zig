@@ -44,11 +44,12 @@ fn Game(maxSize: u32) type {
 }
 
 const XY = @Vector(2, i32);
-fn Snake(size: u32) type {
+fn Snake(maxSize: u32) type {
     const snake = struct {
         // TODO: make this a rope / linked list thingy
-        segments: [size]XY,
+        segments: [maxSize]XY,
         len: u16,
+        maxLen: u32,
     };
     return snake;
 }
@@ -61,8 +62,9 @@ pub fn main() void {
     raylib.InitWindow(screen.x, screen.y, "snek");
     defer raylib.CloseWindow();
     raylib.SetTargetFPS(raylib.GetMonitorRefreshRate(raylib.GetCurrentMonitor()));
+    raylib.SetTargetFPS(24);
 
-    var game: Game(20) = .{ .snake = .{ .len = 10, .segments = undefined } };
+    var game: Game(20) = .{ .snake = .{ .maxLen = 20, .len = 10, .segments = undefined } };
     for (game.snake.segments[0..game.snake.len], 0..) |*seg, i| {
         seg.* = .{ @intCast(game.snake.len - i), 0 };
     }
@@ -85,6 +87,11 @@ pub fn main() void {
         } else if (raylib.IsKeyDown(raylib.KEY_RIGHT)) {
             dir = .right;
         }
+
+        if (raylib.IsKeyPressed(raylib.KEY_SPACE)) {
+            game.snake.len += 1;
+            game.snake.segments[game.snake.len] = game.snake.segments[game.snake.len - 1];
+        }
         const dirV: XY = switch (dir) {
             .up => .{ 0, -1 },
             .down => .{ 0, 1 },
@@ -92,7 +99,7 @@ pub fn main() void {
             .right => .{ 1, 0 },
         };
 
-        const SCALE = 100;
+        const SCALE = 50;
         const head = &game.snake.segments[0];
         const maybeNextHead = head.* + dirV;
         const isNextHeadInBounds = maybeNextHead[0] >= 0 and maybeNextHead[0] < screen.x / SCALE and maybeNextHead[1] >= 0 and maybeNextHead[1] < screen.y / SCALE;
