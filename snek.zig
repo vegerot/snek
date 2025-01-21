@@ -1,4 +1,5 @@
 const std = @import("std");
+const rand = std.crypto.random;
 
 const raylib = @cImport({
     @cInclude("raylib.h");
@@ -88,15 +89,20 @@ pub fn main() void {
     raylib.InitWindow(screen.x, screen.y, "snek");
     defer raylib.CloseWindow();
     raylib.SetTargetFPS(raylib.GetMonitorRefreshRate(raylib.GetCurrentMonitor()));
-    raylib.SetTargetFPS(24);
+    raylib.SetTargetFPS(240);
 
-    var game: Game(20) = .{
+    const SCALE = 50;
+
+    var game: Game(screen.x * screen.y / std.math.pow(i32, SCALE, 2)) = .{
         .snake = .{
             .maxLen = 20,
             .len = 2,
             .segments = undefined,
         },
-        .fruit = XY{ .x = 1, .y = 3 },
+        .fruit = XY{
+            .x = rand.intRangeAtMost(i32, 0, screen.x / SCALE),
+            .y = rand.intRangeAtMost(i32, 0, screen.y / SCALE),
+        },
     };
     for (game.snake.segments[0..game.snake.len], 0..) |*seg, i| {
         seg.* = .{ .x = @intCast(game.snake.len - i), .y = 0 };
@@ -104,7 +110,6 @@ pub fn main() void {
     var dir: Dir = .right;
     var f: i32 = 0;
     while (!raylib.WindowShouldClose()) {
-        const SCALE = 50;
         var lose = false;
         // UPDATE
         {
@@ -146,7 +151,10 @@ pub fn main() void {
                 game.snake.len += 1;
                 game.snake.segments[game.snake.len - 1] = game.snake.segments[game.snake.len - 2];
 
-                game.fruit.y += 1;
+                game.fruit = .{
+                    .x = rand.intRangeAtMost(i32, 0, screen.x / SCALE - 1),
+                    .y = rand.intRangeAtMost(i32, 0, screen.y / SCALE - 1),
+                };
             }
             if (isNextHeadInBounds) {
                 var i = game.snake.len;
@@ -163,6 +171,7 @@ pub fn main() void {
                 std.debug.print("\tSNAKE: {any}\n", .{game.snake.segments});
             } else {
                 std.debug.print("\twall\n", .{});
+                lose = true;
             }
         }
 
