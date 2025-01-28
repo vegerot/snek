@@ -41,6 +41,25 @@ fn Game(maxSize: u32) type {
     const game = struct {
         snake: Snake(maxSize),
         fruit: XY,
+        score: usize,
+        fn init(comptime screen: raylib.Vector2) @This() {
+            var newGame: Game(maxSize) = .{
+                .snake = .{
+                    .maxLen = 20,
+                    .len = 2,
+                    .segments = undefined,
+                },
+                .fruit = XY{
+                    .x = rand.intRangeAtMost(i32, 0, screen.x / SCALE),
+                    .y = rand.intRangeAtMost(i32, 0, screen.y / SCALE),
+                },
+                .score = 0,
+            };
+            for (newGame.snake.segments[0..newGame.snake.len], 0..) |*seg, i| {
+                seg.* = .{ .x = @intCast(newGame.snake.len - i), .y = 0 };
+            }
+            return newGame;
+        }
     };
     return game;
 }
@@ -83,30 +102,17 @@ fn Snake(maxSize: u32) type {
 
 const Dir = enum { up, down, left, right };
 
+const SCALE = 50;
 pub fn main() void {
     raylib.SetConfigFlags(raylib.FLAG_WINDOW_TRANSPARENT);
-    const screen: raylib.Vector2 = .{ .x = 1600, .y = 900 };
+    const screen: raylib.Vector2 = .{ .x = 1300, .y = 700 };
     raylib.InitWindow(screen.x, screen.y, "snek");
     defer raylib.CloseWindow();
     raylib.SetTargetFPS(raylib.GetMonitorRefreshRate(raylib.GetCurrentMonitor()));
-    raylib.SetTargetFPS(240);
+    raylib.SetTargetFPS(24);
 
-    const SCALE = 50;
-
-    var game: Game(screen.x * screen.y / std.math.pow(i32, SCALE, 2)) = .{
-        .snake = .{
-            .maxLen = 20,
-            .len = 2,
-            .segments = undefined,
-        },
-        .fruit = XY{
-            .x = rand.intRangeAtMost(i32, 0, screen.x / SCALE),
-            .y = rand.intRangeAtMost(i32, 0, screen.y / SCALE),
-        },
-    };
-    for (game.snake.segments[0..game.snake.len], 0..) |*seg, i| {
-        seg.* = .{ .x = @intCast(game.snake.len - i), .y = 0 };
-    }
+    const gameSize = screen.x / SCALE * screen.y / SCALE;
+    var game = Game(gameSize).init(screen);
     var dir: Dir = .right;
     var f: i32 = 0;
     while (!raylib.WindowShouldClose()) {
@@ -120,7 +126,6 @@ pub fn main() void {
             // / input
             if (raylib.IsKeyPressed(raylib.KEY_DOWN)) {
                 dir = if (dir != .down) .down else .up;
-                std.debug.print("\t@@@DOWN@@@: \n", .{});
             } else if (raylib.IsKeyDown(raylib.KEY_UP)) {
                 dir = .up;
             } else if (raylib.IsKeyDown(raylib.KEY_LEFT)) {
@@ -130,9 +135,18 @@ pub fn main() void {
             }
 
             if (raylib.IsKeyPressed(raylib.KEY_SPACE)) {
+                std.debug.print("\tdebug: add 1 point\n", .{});
+
+                game.score += 1;
                 game.snake.len += 1;
                 game.snake.segments[game.snake.len] = game.snake.segments[game.snake.len - 1];
             }
+
+            if (raylib.IsKeyPressed(raylib.KEY_R)) {
+                std.debug.print("\tdebug: reset\n", .{});
+                game = Game(gameSize).init(screen);
+            }
+
             const dirV: XY = switch (dir) {
                 .up => .{ .x = 0, .y = -1 },
                 .down => .{ .x = 0, .y = 1 },
@@ -144,11 +158,13 @@ pub fn main() void {
             const maybeNextHead = head.add(&dirV);
             const isNextHeadInBounds = maybeNextHead.x >= 0 and maybeNextHead.x < screen.x / SCALE and maybeNextHead.y >= 0 and maybeNextHead.y < screen.y / SCALE;
             if (game.snake.isTouchingSelf(maybeNextHead)) {
-                std.debug.print("\tself\n", .{});
+                std.debug.print("\t💀 touched yourself\n", .{});
                 lose = true;
             }
             if (game.snake.isTouchingFruit(game.fruit)) {
+                game.score += 1;
                 game.snake.len += 1;
+
                 game.snake.segments[game.snake.len - 1] = game.snake.segments[game.snake.len - 2];
 
                 game.fruit = .{
@@ -168,9 +184,8 @@ pub fn main() void {
                     back.* = front;
                 }
                 head.* = maybeNextHead;
-                std.debug.print("\tSNAKE: {any}\n", .{game.snake.segments});
             } else {
-                std.debug.print("\twall\n", .{});
+                std.debug.print("\t💥 touched wall\n", .{});
                 lose = true;
             }
         }
@@ -186,6 +201,12 @@ pub fn main() void {
 
             const fruitPos = game.fruit.toScreenCoords(SCALE);
             raylib.DrawRectangleRec(raylib.Rectangle{ .x = fruitPos.x, .y = fruitPos.y, .width = SCALE, .height = SCALE }, raylib.GREEN);
+            var score: [3]u8 = undefined;
+            const scoreDigits = std.fmt.digits2(game.score);
+            score[0] = scoreDigits[0];
+            score[1] = scoreDigits[1];
+            score[2] = 0; // null-terminate
+            raylib.DrawText(&score, 10, 3, 69, raylib.PURPLE);
             for (game.snake.segments[0..game.snake.len], 0..) |seg, p| {
                 const snake_seg_size: raylib.Vector2 = .{ .x = SCALE, .y = SCALE };
                 const segScreen = seg.toScreenCoords(SCALE);
