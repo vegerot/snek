@@ -37,28 +37,43 @@ fn buildEnumFromC(comptime import: anytype, comptime prefix: []const u8) type {
 
 const Key = buildEnumFromC(raylib, "KEY");
 
+fn makeTransColors() [7]raylib.Color {
+    var COLORS = [_]raylib.Color{ raylib.RED, raylib.ORANGE, raylib.YELLOW, raylib.GREEN, raylib.BLUE, raylib.MAGENTA, raylib.VIOLET };
+    for (&COLORS) |*color| {
+        color.*.a = 0xEE;
+    }
+    return COLORS;
+}
+
 fn Game(maxSize: u32) type {
     const game = struct {
         snake: Snake(maxSize),
         fruit: XY,
         score: usize,
+        isGodMode: bool,
         fn init(comptime screen: raylib.Vector2) @This() {
             var newGame: Game(maxSize) = .{
                 .snake = .{
                     .maxLen = 20,
-                    .len = 2,
+                    .len = 1,
                     .segments = undefined,
                 },
                 .fruit = XY{
-                    .x = rand.intRangeAtMost(i32, 0, screen.x / SCALE),
-                    .y = rand.intRangeAtMost(i32, 0, screen.y / SCALE),
+                    .x = rand.intRangeAtMost(i32, 0, screen.x / SCALE - 1),
+                    .y = rand.intRangeAtMost(i32, 0, screen.y / SCALE - 1),
                 },
                 .score = 0,
+                .isGodMode = false,
             };
             for (newGame.snake.segments[0..newGame.snake.len], 0..) |*seg, i| {
                 seg.* = .{ .x = @intCast(newGame.snake.len - i), .y = 0 };
             }
             return newGame;
+        }
+        fn reset(self: *@This()) void {
+            std.debug.print("\treset!", .{});
+            self.snake.len = 1;
+            self.score = 0;
         }
     };
     return game;
@@ -105,11 +120,15 @@ const Dir = enum { up, down, left, right };
 const SCALE = 50;
 pub fn main() void {
     raylib.SetConfigFlags(raylib.FLAG_WINDOW_TRANSPARENT);
-    const screen: raylib.Vector2 = .{ .x = 1300, .y = 700 };
+    const screen: raylib.Vector2 = .{ .x = 2600, .y = 1400 };
     raylib.InitWindow(screen.x, screen.y, "snek");
     defer raylib.CloseWindow();
     raylib.SetTargetFPS(raylib.GetMonitorRefreshRate(raylib.GetCurrentMonitor()));
-    raylib.SetTargetFPS(24);
+    raylib.SetTargetFPS(30);
+    const fruitTexture = raylib.LoadTextureFromImage(raylib.LoadImage("./fruit.png"));
+    std.debug.assert(fruitTexture.width == fruitTexture.height);
+    const fruitTextureScale: f32 = SCALE / @as(f32, @floatFromInt(fruitTexture.width));
+    std.debug.print("fruitTextureScale: {}\n", .{fruitTextureScale});
 
     const gameSize = screen.x / SCALE * screen.y / SCALE;
     var game = Game(gameSize).init(screen);
@@ -144,7 +163,12 @@ pub fn main() void {
 
             if (raylib.IsKeyPressed(raylib.KEY_R)) {
                 std.debug.print("\tdebug: reset\n", .{});
-                game = Game(gameSize).init(screen);
+                game = @TypeOf(game).init(screen);
+            }
+
+            if (raylib.IsKeyPressed(raylib.KEY_G)) {
+                std.debug.print("\tdebug: godmode\n", .{});
+                game.isGodMode = true;
             }
 
             const dirV: XY = switch (dir) {
@@ -188,6 +212,12 @@ pub fn main() void {
                 std.debug.print("\t💥 touched wall\n", .{});
                 lose = true;
             }
+            if (lose) {
+                if (!game.isGodMode and game.snake.len >= 2 and game.score > 0) {
+                    game.snake.len -= 1;
+                    game.score -= 1;
+                }
+            }
         }
 
         // DRAW
@@ -198,9 +228,10 @@ pub fn main() void {
             if (lose) {
                 raylib.ClearBackground(raylib.Color{ .r = 0xFF, .a = 0x80 });
             }
+            raylib.DrawRectangleLinesEx(raylib.Rectangle{ .x = 0, .y = 0, .width = screen.x, .height = screen.y }, 3, raylib.BLACK);
 
             const fruitPos = game.fruit.toScreenCoords(SCALE);
-            raylib.DrawRectangleRec(raylib.Rectangle{ .x = fruitPos.x, .y = fruitPos.y, .width = SCALE, .height = SCALE }, raylib.GREEN);
+            raylib.DrawTextureEx(fruitTexture, fruitPos, 0, fruitTextureScale, raylib.RED);
             var score: [3]u8 = undefined;
             const scoreDigits = std.fmt.digits2(game.score);
             score[0] = scoreDigits[0];
@@ -216,9 +247,13 @@ pub fn main() void {
                     .width = snake_seg_size.x,
                     .height = snake_seg_size.y,
                 };
-                const red = raylib.Color{ .r = 0x99, .a = 0xF0 };
-                const blue = raylib.Color{ .b = 0x99, .a = 0xF0 };
-                raylib.DrawRectangleRec(segrec, if (p % 2 == 0) red else blue);
+                const COLORS = makeTransColors();
+                if (p == 0) {
+                    raylib.DrawRectangleRec(segrec, raylib.PURPLE);
+                } else {
+                    // todo: snake emoji
+                    raylib.DrawRectangleRec(segrec, COLORS[p % COLORS.len]);
+                }
             }
         }
     }
