@@ -117,23 +117,43 @@ fn Snake(maxSize: u32) type {
 
 const Dir = enum { up, down, left, right };
 
+const Texture = struct {
+    texture: raylib.Texture2D,
+    scale: f32,
+};
+
+fn generateFruits() [2]Texture {
+    const files = [_][*c]const u8{ "./🍏.png", "./🍌.png" };
+    var ret: [2]Texture = undefined;
+    for (files, &ret) |file, *myTex| {
+        const image = raylib.LoadImage(file);
+        std.debug.assert(image.data != null);
+        myTex.texture = raylib.LoadTextureFromImage(image);
+        std.debug.assert(myTex.texture.width == myTex.texture.height);
+        myTex.scale = SCALE / @as(f32, @floatFromInt(myTex.texture.width));
+    }
+    return ret;
+}
+
 const SCALE = 50;
 pub fn main() void {
     raylib.SetConfigFlags(raylib.FLAG_WINDOW_TRANSPARENT);
-    const screen: raylib.Vector2 = .{ .x = 2600, .y = 1400 };
+    const screen: raylib.Vector2 = .{ .x = 1200, .y = 800 };
     raylib.InitWindow(screen.x, screen.y, "snek");
     defer raylib.CloseWindow();
+    const fruitTextures = generateFruits();
+    std.debug.print("hi {any}", .{fruitTextures});
     raylib.SetTargetFPS(raylib.GetMonitorRefreshRate(raylib.GetCurrentMonitor()));
     raylib.SetTargetFPS(30);
-    const fruitTexture = raylib.LoadTextureFromImage(raylib.LoadImage("./fruit.png"));
-    std.debug.assert(fruitTexture.width == fruitTexture.height);
-    const fruitTextureScale: f32 = SCALE / @as(f32, @floatFromInt(fruitTexture.width));
-    std.debug.print("fruitTextureScale: {}\n", .{fruitTextureScale});
+    const snakeTexture = raylib.LoadTextureFromImage(raylib.LoadImage("./🐍.png"));
+    std.debug.assert(snakeTexture.width == snakeTexture.height);
+    const snakeTextureScale: f32 = SCALE / @as(f32, @floatFromInt(snakeTexture.width));
 
     const gameSize = screen.x / SCALE * screen.y / SCALE;
     var game = Game(gameSize).init(screen);
     var dir: Dir = .right;
     var f: i32 = 0;
+    var fruitT: Texture = fruitTextures[rand.intRangeAtMost(u16, 0, 1)];
     while (!raylib.WindowShouldClose()) {
         var lose = false;
         // UPDATE
@@ -195,6 +215,7 @@ pub fn main() void {
                     .x = rand.intRangeAtMost(i32, 0, screen.x / SCALE - 1),
                     .y = rand.intRangeAtMost(i32, 0, screen.y / SCALE - 1),
                 };
+                fruitT = fruitTextures[rand.intRangeAtMost(u16, 0, 1)];
             }
             if (isNextHeadInBounds) {
                 var i = game.snake.len;
@@ -231,7 +252,7 @@ pub fn main() void {
             raylib.DrawRectangleLinesEx(raylib.Rectangle{ .x = 0, .y = 0, .width = screen.x, .height = screen.y }, 3, raylib.BLACK);
 
             const fruitPos = game.fruit.toScreenCoords(SCALE);
-            raylib.DrawTextureEx(fruitTexture, fruitPos, 0, fruitTextureScale, raylib.RED);
+            raylib.DrawTextureEx(fruitT.texture, fruitPos, 0, fruitT.scale, raylib.WHITE);
             var score: [3]u8 = undefined;
             const scoreDigits = std.fmt.digits2(game.score);
             score[0] = scoreDigits[0];
@@ -239,22 +260,17 @@ pub fn main() void {
             score[2] = 0; // null-terminate
             raylib.DrawText(&score, 10, 3, 69, raylib.PURPLE);
             for (game.snake.segments[0..game.snake.len], 0..) |seg, p| {
-                const snake_seg_size: raylib.Vector2 = .{ .x = SCALE, .y = SCALE };
                 const segScreen = seg.toScreenCoords(SCALE);
-                const segrec = raylib.Rectangle{
-                    .x = segScreen.x,
-                    .y = segScreen.y,
-                    .width = snake_seg_size.x,
-                    .height = snake_seg_size.y,
-                };
                 const COLORS = makeTransColors();
                 if (p == 0) {
-                    raylib.DrawRectangleRec(segrec, raylib.PURPLE);
+                    raylib.DrawTextureEx(snakeTexture, segScreen, 0, snakeTextureScale, raylib.WHITE);
                 } else {
                     // todo: snake emoji
-                    raylib.DrawRectangleRec(segrec, COLORS[p % COLORS.len]);
+                    raylib.DrawTextureEx(snakeTexture, segScreen, 0, snakeTextureScale, COLORS[p % COLORS.len]);
+                    //raylib.DrawRectangleRec(segrec, COLORS[p % COLORS.len]);
                 }
             }
+            raylib.DrawFPS(screen.x - 100, 0);
         }
     }
 }
