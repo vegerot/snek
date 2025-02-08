@@ -107,13 +107,13 @@ fn Snake(maxSize: u32) type {
         fn isTouchingFruit(self: *const @This(), fruit: XY) bool {
             return self.segments[0].x == fruit.x and self.segments[0].y == fruit.y;
         }
-        fn isTouchingSelf(self: *const @This(), nextHead: XY) bool {
-            for (self.segments[1..self.len]) |seg| {
+        fn isTouchingSelf(self: *const @This(), nextHead: XY) usize {
+            for (self.segments[1..self.len], 0..) |seg, i| {
                 if (seg.isEqual(nextHead)) {
-                    return true;
+                    return i;
                 }
             }
-            return false;
+            return 0;
         }
     };
     return snake;
@@ -180,7 +180,7 @@ pub fn main() !void {
     var f: i32 = 0;
     var fruitTextureOffset: TextureOffset = fruitTextures.next();
     while (!raylib.WindowShouldClose()) {
-        var lose = false;
+        var loseCnt: usize = 0;
         // UPDATE
         update: {
             f += 1;
@@ -239,9 +239,9 @@ pub fn main() !void {
             const head = &game.snake.segments[0];
             const maybeNextHead = head.add(&dirV);
             const isNextHeadInBounds = maybeNextHead.x >= 0 and maybeNextHead.x < screen.x / SCALE and maybeNextHead.y >= 0 and maybeNextHead.y < screen.y / SCALE;
-            if (game.snake.isTouchingSelf(maybeNextHead)) {
+            if (game.snake.isTouchingSelf(maybeNextHead) != 0) {
                 std.debug.print("\t💀 touched yourself\n", .{});
-                lose = true;
+                loseCnt = game.snake.len - game.snake.isTouchingSelf(maybeNextHead);
             }
             if (game.snake.isTouchingFruit(game.fruit)) {
                 game.score += 1;
@@ -269,12 +269,12 @@ pub fn main() !void {
                 head.* = maybeNextHead;
             } else {
                 std.debug.print("\t💥 touched wall\n", .{});
-                lose = true;
+                loseCnt = 1;
             }
-            if (lose) {
+            if (loseCnt != 0) {
                 if (!game.isGodMode and game.snake.len >= 2 and game.score > 0) {
-                    game.snake.len -= 1;
-                    game.score -= 1;
+                    game.snake.len -= @intCast(loseCnt);
+                    game.score -= @intCast(loseCnt);
                 }
             }
         }
@@ -288,7 +288,7 @@ pub fn main() !void {
             } else {
                 raylib.ClearBackground(raylib.Color{ .a = 0xF0 });
             }
-            if (lose) {
+            if (loseCnt != 0 and game.score > 0) {
                 raylib.ClearBackground(raylib.Color{ .r = 0x80, .a = 0x80 });
             }
             raylib.DrawRectangleLinesEx(raylib.Rectangle{ .x = 0, .y = 0, .width = screen.x, .height = screen.y }, 3, raylib.BLACK);
