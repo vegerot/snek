@@ -50,6 +50,7 @@ fn Game(maxSize: u32) type {
         snake: Snake(maxSize),
         fruit: XY,
         score: usize,
+        highScore: usize,
         isGodMode: bool,
         isTransparent: bool,
         isPaused: bool,
@@ -65,6 +66,7 @@ fn Game(maxSize: u32) type {
                     .y = rand.intRangeAtMost(i32, 0, screen.y / SCALE - 1),
                 },
                 .score = 0,
+                .highScore = 0,
                 .isGodMode = false,
                 .isTransparent = true,
                 .isPaused = false,
@@ -78,6 +80,12 @@ fn Game(maxSize: u32) type {
             std.debug.print("\treset!", .{});
             self.snake.len = 1;
             self.score = 0;
+        }
+        fn incrementScore(self: *@This()) void {
+            self.score += 1;
+            if (self.score > self.highScore) {
+                self.highScore = self.score;
+            }
         }
     };
     return game;
@@ -205,9 +213,9 @@ pub fn main() !void {
                 }
 
                 if (raylib.IsKeyPressed(raylib.KEY_PERIOD)) {
-                    std.debug.print("\tdebug: add 1 point\n", .{});
+                    std.debug.print("\tcheat: add 1 point\n", .{});
 
-                    game.score += 1;
+                    game.incrementScore();
                     game.snake.len += 1;
                     game.snake.segments[game.snake.len] = game.snake.segments[game.snake.len - 1];
                 }
@@ -242,10 +250,10 @@ pub fn main() !void {
             const isNextHeadInBounds = maybeNextHead.x >= 0 and maybeNextHead.x < screen.x / SCALE and maybeNextHead.y >= 0 and maybeNextHead.y < screen.y / SCALE;
             if (game.snake.isTouchingSelf(maybeNextHead) != 0) {
                 std.debug.print("\t💀 touched yourself\n", .{});
-                loseCnt = game.snake.len - game.snake.isTouchingSelf(maybeNextHead);
+                loseCnt = game.snake.isTouchingSelf(maybeNextHead);
             }
             if (game.snake.isTouchingFruit(game.fruit)) {
-                game.score += 1;
+                game.incrementScore();
                 game.snake.len += 1;
 
                 game.snake.segments[game.snake.len - 1] = game.snake.segments[game.snake.len - 2];
@@ -315,6 +323,14 @@ pub fn main() !void {
             score[1] = scoreDigits[1];
             score[2] = 0; // null-terminate
             raylib.DrawText(&score, 10, 3, 69, raylib.PURPLE);
+            if (game.score != game.highScore) {
+                var highScore: [3]u8 = undefined;
+                const highScoreDigits = std.fmt.digits2(game.highScore);
+                highScore[0] = highScoreDigits[0];
+                highScore[1] = highScoreDigits[1];
+                highScore[2] = 0; // null-terminate
+                raylib.DrawText(&highScore, 10, 75, 33, raylib.BLUE);
+            }
             for (game.snake.segments[0..game.snake.len], 0..) |seg, p| {
                 const segScreen = seg.toScreenCoords(SCALE);
                 const COLORS = makeTransColors();
