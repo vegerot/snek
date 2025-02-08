@@ -52,6 +52,7 @@ fn Game(maxSize: u32) type {
         score: usize,
         isGodMode: bool,
         isTransparent: bool,
+        isPaused: bool,
         fn init(comptime screen: raylib.Vector2) @This() {
             var newGame: Game(maxSize) = .{
                 .snake = .{
@@ -66,6 +67,7 @@ fn Game(maxSize: u32) type {
                 .score = 0,
                 .isGodMode = false,
                 .isTransparent = true,
+                .isPaused = false,
             };
             for (newGame.snake.segments[0..newGame.snake.len], 0..) |*seg, i| {
                 seg.* = .{ .x = @intCast(newGame.snake.len - i), .y = 0 };
@@ -180,7 +182,7 @@ pub fn main() !void {
     while (!raylib.WindowShouldClose()) {
         var lose = false;
         // UPDATE
-        {
+        update: {
             f += 1;
             std.debug.print("\n**FRAME {}\n", .{f});
             defer std.debug.print("---------\n", .{});
@@ -197,7 +199,11 @@ pub fn main() !void {
                     dir = .right;
                 }
 
-                if (raylib.IsKeyPressed(raylib.KEY_SPACE)) {
+                if (raylib.IsKeyPressed(raylib.KEY_SPACE) or raylib.IsKeyPressed(raylib.KEY_P)) {
+                    game.isPaused = !game.isPaused;
+                }
+
+                if (raylib.IsKeyPressed(raylib.KEY_PERIOD)) {
                     std.debug.print("\tdebug: add 1 point\n", .{});
 
                     game.score += 1;
@@ -218,6 +224,9 @@ pub fn main() !void {
                 if (raylib.IsKeyPressed(raylib.KEY_T)) {
                     game.isTransparent = !game.isTransparent;
                 }
+            }
+            if (game.isPaused) {
+                break :update;
             }
 
             const dirV: XY = switch (dir) {
