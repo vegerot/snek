@@ -101,6 +101,7 @@ const XY = struct {
 fn Snake(maxSize: u32) type {
     const snake = struct {
         // TODO: make this a rope / linked list thingy
+        // 0 = head
         segments: [maxSize]XY,
         len: u16,
         maxLen: u32,
@@ -110,7 +111,7 @@ fn Snake(maxSize: u32) type {
         fn isTouchingSelf(self: *const @This(), nextHead: XY) usize {
             for (self.segments[1..self.len], 0..) |seg, i| {
                 if (seg.isEqual(nextHead)) {
-                    return i;
+                    return i + 1;
                 }
             }
             return 0;
@@ -269,12 +270,12 @@ pub fn main() !void {
                 head.* = maybeNextHead;
             } else {
                 std.debug.print("\t💥 touched wall\n", .{});
-                loseCnt = 1;
+                loseCnt = game.snake.len - 1;
             }
             if (loseCnt != 0) {
                 if (!game.isGodMode and game.snake.len >= 2 and game.score > 0) {
-                    game.snake.len -= @intCast(loseCnt);
-                    game.score -= @intCast(loseCnt);
+                    game.snake.len = @intCast(loseCnt);
+                    game.score = @intCast(loseCnt - 1);
                 }
             }
         }
