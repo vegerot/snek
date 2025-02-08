@@ -189,13 +189,13 @@ pub fn main() !void {
 
             // / input
             {
-                if (raylib.IsKeyPressed(raylib.KEY_DOWN)) {
+                if (raylib.IsKeyPressed(raylib.KEY_DOWN) and dir != .up) {
                     dir = if (dir != .down) .down else .up;
-                } else if (raylib.IsKeyDown(raylib.KEY_UP)) {
+                } else if (raylib.IsKeyDown(raylib.KEY_UP) and dir != .down) {
                     dir = .up;
-                } else if (raylib.IsKeyDown(raylib.KEY_LEFT)) {
+                } else if (raylib.IsKeyDown(raylib.KEY_LEFT) and dir != .right) {
                     dir = .left;
-                } else if (raylib.IsKeyDown(raylib.KEY_RIGHT)) {
+                } else if (raylib.IsKeyDown(raylib.KEY_RIGHT) and dir != .left) {
                     dir = .right;
                 }
 
