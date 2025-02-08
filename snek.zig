@@ -122,32 +122,43 @@ const Texture = struct {
     scale: f32,
 };
 
-fn generateFruits() [2]Texture {
-    const files = [_][*c]const u8{ "./🍏.png", "./🍌.png" };
+fn generateFruits() ![2]Texture {
+    const dir = "./fruits";
     var ret: [2]Texture = undefined;
-    for (files, &ret) |file, *myTex| {
-        const image = raylib.LoadImage(file);
+    var i: u8 = 0;
+    var fruitsDir = try std.fs.cwd().openDir(dir, .{ .iterate = true });
+    var it = fruitsDir.iterate();
+    while (try it.next()) |file| {
+        defer i += 1;
+
+        var filePath: [22:0]u8 = undefined;
+        @memcpy(filePath[0..dir.len], dir);
+        filePath[dir.len] = '/';
+        @memcpy(filePath[dir.len + 1 .. (dir.len + 1 + file.name.len)], file.name);
+        filePath[dir.len + 1 + file.name.len] = 0;
+        const image = raylib.LoadImage(&filePath);
         std.debug.assert(image.data != null);
-        myTex.texture = raylib.LoadTextureFromImage(image);
-        std.debug.assert(myTex.texture.width == myTex.texture.height);
-        myTex.scale = SCALE / @as(f32, @floatFromInt(myTex.texture.width));
+        ret[i].texture = raylib.LoadTextureFromImage(image);
+        std.debug.assert(ret[i].texture.width == ret[i].texture.height);
+        ret[i].scale = SCALE / @as(f32, @floatFromInt(ret[i].texture.width));
     }
     return ret;
 }
 
 const SCALE = 50;
-pub fn main() void {
+pub fn main() !void {
     raylib.SetConfigFlags(raylib.FLAG_WINDOW_TRANSPARENT);
     const screen: raylib.Vector2 = .{ .x = 1200, .y = 800 };
     raylib.InitWindow(screen.x, screen.y, "snek");
     defer raylib.CloseWindow();
-    const fruitTextures = generateFruits();
+    const fruitTextures = try generateFruits();
     std.debug.print("hi {any}", .{fruitTextures});
     raylib.SetTargetFPS(raylib.GetMonitorRefreshRate(raylib.GetCurrentMonitor()));
     raylib.SetTargetFPS(30);
     const snakeTexture = raylib.LoadTextureFromImage(raylib.LoadImage("./🐍.png"));
     std.debug.assert(snakeTexture.width == snakeTexture.height);
     const snakeTextureScale: f32 = SCALE / @as(f32, @floatFromInt(snakeTexture.width));
+    const font = raylib.LoadFont("./emoji.ttf");
 
     const gameSize = screen.x / SCALE * screen.y / SCALE;
     var game = Game(gameSize).init(screen);
@@ -259,6 +270,7 @@ pub fn main() void {
             score[1] = scoreDigits[1];
             score[2] = 0; // null-terminate
             raylib.DrawText(&score, 10, 3, 69, raylib.PURPLE);
+            raylib.DrawTextEx(raylib.GetFontDefault(), "😎", .{ .x = 10, .y = 3 }, @floatFromInt(font.baseSize), 1, raylib.WHITE);
             for (game.snake.segments[0..game.snake.len], 0..) |seg, p| {
                 const segScreen = seg.toScreenCoords(SCALE);
                 const COLORS = makeTransColors();

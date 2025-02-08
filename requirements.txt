@@ -1,0 +1,2 @@
+pillow
+git+https://github.com/jay3332/pilmoji.git

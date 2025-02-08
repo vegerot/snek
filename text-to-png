@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+
+import argparse
+from pilmoji import Pilmoji
+from PIL import Image, ImageDraw, ImageFont
+
+def create_png_from_char(char, font_path, font_size, output_path):
+    # Load the font
+    font = ImageFont.load_default(24) #ImageFont.truetype(font_path, font_size, encoding='unic')
+    # Calculate the width and height of the text to be drawn
+    text_bbox = font.getbbox(char)
+
+    # Create a new image with a white background
+    image = Image.new('RGBA', (4*text_bbox[2], 4*text_bbox[3])  , 0x000000FF)
+    draw = Pilmoji(image, emoji_scale_factor=4)
+
+    # Draw the text on the image
+    draw.text((0,-text_bbox[3]), char, fill='green', font=font, embedded_color=True, )
+
+    # Save the image
+    if output_path:
+        image.save(output_path)
+    else:
+        image.show()
+
+    # print(f"Image saved to {output_path}")
+
+def main():
+    parser = argparse.ArgumentParser(description="Create a PNG image from a text character.")
+    parser.add_argument('character', type=str, help="The character to create a PNG from.")
+    parser.add_argument('--font', type=str, default='./emoji.ttf', help="Path to the font file.")
+    parser.add_argument('--fontsize', type=int, default=109, help="Font size.")
+    parser.add_argument('--imageheight', type=int, nargs=3, default=300, help="Height of the output image.")
+    parser.add_argument('--output', type=str, help="Output file path.")
+
+    args = parser.parse_args()
+
+    create_png_from_char(args.character, font_path=args.font, font_size=args.fontsize, output_path=args.output)
+
+if __name__ == '__main__':
+    main()
