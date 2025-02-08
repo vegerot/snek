@@ -40,7 +40,7 @@ const Key = buildEnumFromC(raylib, "KEY");
 fn makeTransColors() [7]raylib.Color {
     var COLORS = [_]raylib.Color{ raylib.RED, raylib.ORANGE, raylib.YELLOW, raylib.GREEN, raylib.BLUE, raylib.MAGENTA, raylib.VIOLET };
     for (&COLORS) |*color| {
-        color.*.a = 0xEE;
+        color.*.a = 0xE0;
     }
     return COLORS;
 }
@@ -305,16 +305,14 @@ pub fn main() !void {
             score[1] = scoreDigits[1];
             score[2] = 0; // null-terminate
             raylib.DrawText(&score, 10, 3, 69, raylib.PURPLE);
-            raylib.DrawTextEx(raylib.GetFontDefault(), "😎", .{ .x = 10, .y = 3 }, @floatFromInt(font.baseSize), 1, raylib.WHITE);
             for (game.snake.segments[0..game.snake.len], 0..) |seg, p| {
                 const segScreen = seg.toScreenCoords(SCALE);
                 const COLORS = makeTransColors();
                 if (p == 0) {
                     raylib.DrawTextureEx(snakeTexture, segScreen, 0, snakeTextureScale, raylib.WHITE);
                 } else {
-                    // todo: snake emoji
+                    // raylib.DrawRectangleRec(.{ .x = segScreen.x, .y = segScreen.y, .width = SCALE, .height = SCALE }, COLORS[p % COLORS.len]);
                     raylib.DrawTextureEx(snakeTexture, segScreen, 0, snakeTextureScale, COLORS[p % COLORS.len]);
-                    //raylib.DrawRectangleRec(segrec, COLORS[p % COLORS.len]);
                 }
             }
             raylib.DrawFPS(screen.x - 100, 0);
