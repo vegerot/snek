@@ -51,6 +51,7 @@ fn Game(maxSize: u32) type {
         fruit: XY,
         score: usize,
         isGodMode: bool,
+        isTransparent: bool,
         fn init(comptime screen: raylib.Vector2) @This() {
             var newGame: Game(maxSize) = .{
                 .snake = .{
@@ -64,6 +65,7 @@ fn Game(maxSize: u32) type {
                 },
                 .score = 0,
                 .isGodMode = false,
+                .isTransparent = true,
             };
             for (newGame.snake.segments[0..newGame.snake.len], 0..) |*seg, i| {
                 seg.* = .{ .x = @intCast(newGame.snake.len - i), .y = 0 };
@@ -117,37 +119,39 @@ fn Snake(maxSize: u32) type {
 
 const Dir = enum { up, down, left, right };
 
-const Texture = struct {
-    texture: raylib.Texture2D,
+const TextureOffset = struct {
     scale: f32,
+    texturePos: raylib.Rectangle,
 };
 
 const FruitTextures = struct {
-    textures: [2]Texture,
+    const texturesCount = 10;
+    spriteSheetTexture: raylib.Texture2D,
+    textures: [texturesCount]TextureOffset,
     fn generateFruits() !FruitTextures {
-        const dir = "./fruits";
-        var textures: [2]Texture = undefined;
-        var i: u8 = 0;
-        var fruitsDir = try std.fs.cwd().openDir(dir, .{ .iterate = true });
-        var it = fruitsDir.iterate();
-        while (try it.next()) |file| {
-            defer i += 1;
-
-            var filePath: [22:0]u8 = undefined;
-            @memcpy(filePath[0..dir.len], dir);
-            filePath[dir.len] = '/';
-            @memcpy(filePath[dir.len + 1 .. (dir.len + 1 + file.name.len)], file.name);
-            filePath[dir.len + 1 + file.name.len] = 0;
-            const image = raylib.LoadImage(&filePath);
-            std.debug.assert(image.data != null);
-            textures[i].texture = raylib.LoadTextureFromImage(image);
-            std.debug.assert(textures[i].texture.width == textures[i].texture.height);
-            textures[i].scale = SCALE / @as(f32, @floatFromInt(textures[i].texture.width));
+        const spriteSheetTexture = raylib.LoadTexture("./emoji.png");
+        const avgHeight = 96; //px
+        const avgWidth = 96; // px
+        // // height=96px, average width=954px/10=95
+        // const textureCount = 10;
+        var self: @This() = .{ .spriteSheetTexture = spriteSheetTexture, .textures = undefined };
+        for (&self.textures, 0..) |*fruit, i| {
+            const fi: f32 = @floatFromInt(i);
+            fruit.*.texturePos = .{
+                .x = fi * avgWidth,
+                .y = 0,
+                .width = avgWidth,
+                .height = avgHeight,
+            };
+            fruit.*.scale = SCALE;
         }
-        return .{ .textures = textures };
+        return self;
     }
-    fn next(self: *const @This()) Texture {
-        return self.textures[rand.intRangeAtMost(u16, 0, 1)];
+    fn next(self: *const @This()) TextureOffset {
+        return self.textures[rand.intRangeAtMost(u16, 0, texturesCount - 1)];
+    }
+    fn unload(self: *const @This()) void {
+        raylib.UnloadTexture(self.spriteSheetTexture);
     }
 };
 
@@ -158,7 +162,7 @@ pub fn main() !void {
     raylib.InitWindow(screen.x, screen.y, "snek");
     defer raylib.CloseWindow();
     const fruitTextures = try FruitTextures.generateFruits();
-    std.debug.print("hi {any}", .{fruitTextures});
+    defer fruitTextures.unload();
     raylib.SetTargetFPS(raylib.GetMonitorRefreshRate(raylib.GetCurrentMonitor()));
     raylib.SetTargetFPS(30);
     const snakeTexture = raylib.LoadTextureFromImage(raylib.LoadImage("./🐍.png"));
@@ -172,8 +176,7 @@ pub fn main() !void {
     var game = Game(gameSize).init(screen);
     var dir: Dir = .right;
     var f: i32 = 0;
-    const firstFruitTexture = fruitTextures.next();
-    var fruitT: Texture = firstFruitTexture;
+    var fruitTextureOffset: TextureOffset = fruitTextures.next();
     while (!raylib.WindowShouldClose()) {
         var lose = false;
         // UPDATE
@@ -183,32 +186,38 @@ pub fn main() !void {
             defer std.debug.print("---------\n", .{});
 
             // / input
-            if (raylib.IsKeyPressed(raylib.KEY_DOWN)) {
-                dir = if (dir != .down) .down else .up;
-            } else if (raylib.IsKeyDown(raylib.KEY_UP)) {
-                dir = .up;
-            } else if (raylib.IsKeyDown(raylib.KEY_LEFT)) {
-                dir = .left;
-            } else if (raylib.IsKeyDown(raylib.KEY_RIGHT)) {
-                dir = .right;
-            }
+            {
+                if (raylib.IsKeyPressed(raylib.KEY_DOWN)) {
+                    dir = if (dir != .down) .down else .up;
+                } else if (raylib.IsKeyDown(raylib.KEY_UP)) {
+                    dir = .up;
+                } else if (raylib.IsKeyDown(raylib.KEY_LEFT)) {
+                    dir = .left;
+                } else if (raylib.IsKeyDown(raylib.KEY_RIGHT)) {
+                    dir = .right;
+                }
 
-            if (raylib.IsKeyPressed(raylib.KEY_SPACE)) {
-                std.debug.print("\tdebug: add 1 point\n", .{});
+                if (raylib.IsKeyPressed(raylib.KEY_SPACE)) {
+                    std.debug.print("\tdebug: add 1 point\n", .{});
 
-                game.score += 1;
-                game.snake.len += 1;
-                game.snake.segments[game.snake.len] = game.snake.segments[game.snake.len - 1];
-            }
+                    game.score += 1;
+                    game.snake.len += 1;
+                    game.snake.segments[game.snake.len] = game.snake.segments[game.snake.len - 1];
+                }
 
-            if (raylib.IsKeyPressed(raylib.KEY_R)) {
-                std.debug.print("\tdebug: reset\n", .{});
-                game = @TypeOf(game).init(screen);
-            }
+                if (raylib.IsKeyPressed(raylib.KEY_R)) {
+                    std.debug.print("\tdebug: reset\n", .{});
+                    game = @TypeOf(game).init(screen);
+                }
 
-            if (raylib.IsKeyPressed(raylib.KEY_G)) {
-                std.debug.print("\tdebug: godmode\n", .{});
-                game.isGodMode = true;
+                if (raylib.IsKeyPressed(raylib.KEY_G)) {
+                    std.debug.print("\tdebug: godmode\n", .{});
+                    game.isGodMode = true;
+                }
+
+                if (raylib.IsKeyPressed(raylib.KEY_T)) {
+                    game.isTransparent = !game.isTransparent;
+                }
             }
 
             const dirV: XY = switch (dir) {
@@ -235,7 +244,7 @@ pub fn main() !void {
                     .x = rand.intRangeAtMost(i32, 0, screen.x / SCALE - 1),
                     .y = rand.intRangeAtMost(i32, 0, screen.y / SCALE - 1),
                 };
-                fruitT = fruitTextures.next();
+                fruitTextureOffset = fruitTextures.next();
             }
             if (isNextHeadInBounds) {
                 var i = game.snake.len;
@@ -265,14 +274,31 @@ pub fn main() !void {
         {
             raylib.BeginDrawing();
             defer raylib.EndDrawing();
-            raylib.ClearBackground(raylib.Color{ .a = 0x01 });
+            if (game.isTransparent) {
+                raylib.ClearBackground(raylib.Color{ .a = 0x10 });
+            } else {
+                raylib.ClearBackground(raylib.Color{ .a = 0xF0 });
+            }
             if (lose) {
-                raylib.ClearBackground(raylib.Color{ .r = 0xFF, .a = 0x80 });
+                raylib.ClearBackground(raylib.Color{ .r = 0x80, .a = 0x80 });
             }
             raylib.DrawRectangleLinesEx(raylib.Rectangle{ .x = 0, .y = 0, .width = screen.x, .height = screen.y }, 3, raylib.BLACK);
 
             const fruitPos = game.fruit.toScreenCoords(SCALE);
-            raylib.DrawTextureEx(fruitT.texture, fruitPos, 0, fruitT.scale, raylib.WHITE);
+            const fruitPosRec: raylib.Rectangle = .{
+                .x = fruitPos.x,
+                .y = fruitPos.y,
+                .width = fruitTextureOffset.scale,
+                .height = fruitTextureOffset.scale,
+            };
+            raylib.DrawTexturePro(
+                fruitTextures.spriteSheetTexture,
+                fruitTextureOffset.texturePos,
+                fruitPosRec,
+                .{},
+                0,
+                raylib.WHITE,
+            );
             var score: [3]u8 = undefined;
             const scoreDigits = std.fmt.digits2(game.score);
             score[0] = scoreDigits[0];
