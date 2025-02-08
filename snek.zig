@@ -54,6 +54,7 @@ fn Game(maxSize: u32) type {
         isGodMode: bool,
         isTransparent: bool,
         isPaused: bool,
+        shouldAdvanceFrame: bool,
         fn init(comptime screen: raylib.Vector2) @This() {
             var newGame: Game(maxSize) = .{
                 .snake = .{
@@ -70,6 +71,7 @@ fn Game(maxSize: u32) type {
                 .isGodMode = false,
                 .isTransparent = true,
                 .isPaused = false,
+                .shouldAdvanceFrame = false,
             };
             for (newGame.snake.segments[0..newGame.snake.len], 0..) |*seg, i| {
                 seg.* = .{ .x = @intCast(newGame.snake.len - i), .y = 0 };
@@ -199,7 +201,7 @@ pub fn main() !void {
             // / input
             {
                 if (raylib.IsKeyPressed(raylib.KEY_DOWN) and dir != .up) {
-                    dir = if (dir != .down) .down else .up;
+                    dir = .down;
                 } else if (raylib.IsKeyDown(raylib.KEY_UP) and dir != .down) {
                     dir = .up;
                 } else if (raylib.IsKeyDown(raylib.KEY_LEFT) and dir != .right) {
@@ -211,6 +213,7 @@ pub fn main() !void {
                 if (raylib.IsKeyPressed(raylib.KEY_SPACE) or raylib.IsKeyPressed(raylib.KEY_P)) {
                     game.isPaused = !game.isPaused;
                 }
+                game.shouldAdvanceFrame = raylib.IsKeyPressed(raylib.KEY_F);
 
                 if (raylib.IsKeyPressed(raylib.KEY_PERIOD)) {
                     std.debug.print("\tcheat: add 1 point\n", .{});
@@ -234,7 +237,7 @@ pub fn main() !void {
                     game.isTransparent = !game.isTransparent;
                 }
             }
-            if (game.isPaused) {
+            if (game.isPaused and !game.shouldAdvanceFrame) {
                 break :update;
             }
 
