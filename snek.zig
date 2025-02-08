@@ -122,28 +122,34 @@ const Texture = struct {
     scale: f32,
 };
 
-fn generateFruits() ![2]Texture {
-    const dir = "./fruits";
-    var ret: [2]Texture = undefined;
-    var i: u8 = 0;
-    var fruitsDir = try std.fs.cwd().openDir(dir, .{ .iterate = true });
-    var it = fruitsDir.iterate();
-    while (try it.next()) |file| {
-        defer i += 1;
+const FruitTextures = struct {
+    textures: [2]Texture,
+    fn generateFruits() !FruitTextures {
+        const dir = "./fruits";
+        var textures: [2]Texture = undefined;
+        var i: u8 = 0;
+        var fruitsDir = try std.fs.cwd().openDir(dir, .{ .iterate = true });
+        var it = fruitsDir.iterate();
+        while (try it.next()) |file| {
+            defer i += 1;
 
-        var filePath: [22:0]u8 = undefined;
-        @memcpy(filePath[0..dir.len], dir);
-        filePath[dir.len] = '/';
-        @memcpy(filePath[dir.len + 1 .. (dir.len + 1 + file.name.len)], file.name);
-        filePath[dir.len + 1 + file.name.len] = 0;
-        const image = raylib.LoadImage(&filePath);
-        std.debug.assert(image.data != null);
-        ret[i].texture = raylib.LoadTextureFromImage(image);
-        std.debug.assert(ret[i].texture.width == ret[i].texture.height);
-        ret[i].scale = SCALE / @as(f32, @floatFromInt(ret[i].texture.width));
+            var filePath: [22:0]u8 = undefined;
+            @memcpy(filePath[0..dir.len], dir);
+            filePath[dir.len] = '/';
+            @memcpy(filePath[dir.len + 1 .. (dir.len + 1 + file.name.len)], file.name);
+            filePath[dir.len + 1 + file.name.len] = 0;
+            const image = raylib.LoadImage(&filePath);
+            std.debug.assert(image.data != null);
+            textures[i].texture = raylib.LoadTextureFromImage(image);
+            std.debug.assert(textures[i].texture.width == textures[i].texture.height);
+            textures[i].scale = SCALE / @as(f32, @floatFromInt(textures[i].texture.width));
+        }
+        return .{ .textures = textures };
     }
-    return ret;
-}
+    fn next(self: *const @This()) Texture {
+        return self.textures[rand.intRangeAtMost(u16, 0, 1)];
+    }
+};
 
 const SCALE = 50;
 pub fn main() !void {
@@ -151,20 +157,23 @@ pub fn main() !void {
     const screen: raylib.Vector2 = .{ .x = 1200, .y = 800 };
     raylib.InitWindow(screen.x, screen.y, "snek");
     defer raylib.CloseWindow();
-    const fruitTextures = try generateFruits();
+    const fruitTextures = try FruitTextures.generateFruits();
     std.debug.print("hi {any}", .{fruitTextures});
     raylib.SetTargetFPS(raylib.GetMonitorRefreshRate(raylib.GetCurrentMonitor()));
     raylib.SetTargetFPS(30);
     const snakeTexture = raylib.LoadTextureFromImage(raylib.LoadImage("./🐍.png"));
+    std.debug.assert(snakeTexture.id != 0);
     std.debug.assert(snakeTexture.width == snakeTexture.height);
     const snakeTextureScale: f32 = SCALE / @as(f32, @floatFromInt(snakeTexture.width));
     const font = raylib.LoadFont("./emoji.ttf");
+    std.debug.assert(font.texture.id != 0);
 
     const gameSize = screen.x / SCALE * screen.y / SCALE;
     var game = Game(gameSize).init(screen);
     var dir: Dir = .right;
     var f: i32 = 0;
-    var fruitT: Texture = fruitTextures[rand.intRangeAtMost(u16, 0, 1)];
+    const firstFruitTexture = fruitTextures.next();
+    var fruitT: Texture = firstFruitTexture;
     while (!raylib.WindowShouldClose()) {
         var lose = false;
         // UPDATE
@@ -226,7 +235,7 @@ pub fn main() !void {
                     .x = rand.intRangeAtMost(i32, 0, screen.x / SCALE - 1),
                     .y = rand.intRangeAtMost(i32, 0, screen.y / SCALE - 1),
                 };
-                fruitT = fruitTextures[rand.intRangeAtMost(u16, 0, 1)];
+                fruitT = fruitTextures.next();
             }
             if (isNextHeadInBounds) {
                 var i = game.snake.len;
