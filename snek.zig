@@ -230,7 +230,7 @@ pub fn main() !void {
 
                 if (raylib.IsKeyPressed(raylib.KEY_G)) {
                     std.debug.print("\tdebug: godmode\n", .{});
-                    game.isGodMode = true;
+                    game.isGodMode = !game.isGodMode;
                 }
 
                 if (raylib.IsKeyPressed(raylib.KEY_T)) {
