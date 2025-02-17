@@ -55,10 +55,15 @@ fn Game(maxSize: u32) type {
         isTransparent: bool,
         isPaused: bool,
         shouldAdvanceFrame: bool,
+        frameCount: i64,
+        dir: Dir,
+        gameSize: struct { x: i16, y: i16 },
+        loseCnt: usize,
+        fruitTextureOffset: TextureOffset,
         fn init(comptime screen: raylib.Vector2) @This() {
             var newGame: Game(maxSize) = .{
                 .snake = .{
-                    .maxLen = 20,
+                    .maxLen = maxSize,
                     .len = 1,
                     .segments = undefined,
                 },
@@ -72,6 +77,11 @@ fn Game(maxSize: u32) type {
                 .isTransparent = true,
                 .isPaused = false,
                 .shouldAdvanceFrame = false,
+                .frameCount = 0,
+                .dir = .right,
+                .gameSize = .{ .x = screen.x / SCALE, .y = screen.y / SCALE },
+                .loseCnt = 0,
+                .fruitTextureOffset = .{ .scale = SCALE, .texturePos = undefined },
             };
             for (newGame.snake.segments[0..newGame.snake.len], 0..) |*seg, i| {
                 seg.* = .{ .x = @intCast(newGame.snake.len - i), .y = 0 };
@@ -87,6 +97,63 @@ fn Game(maxSize: u32) type {
             self.score += 1;
             if (self.score > self.highScore) {
                 self.highScore = self.score;
+            }
+        }
+        fn update(game: *@This(), fruitTextures: FruitTextures) void {
+            std.debug.print("\n**FRAME {}\n", .{game.frameCount});
+            defer std.debug.print("---------\n", .{});
+
+            if (game.isPaused and !game.shouldAdvanceFrame) {
+                return;
+            }
+
+            const dirV: XY = switch (game.dir) {
+                .up => .{ .x = 0, .y = -1 },
+                .down => .{ .x = 0, .y = 1 },
+                .left => .{ .x = -1, .y = 0 },
+                .right => .{ .x = 1, .y = 0 },
+            };
+
+            const head = &game.snake.segments[0];
+            const maybeNextHead = head.add(&dirV);
+            const isNextHeadInBounds = maybeNextHead.x >= 0 and maybeNextHead.x < game.gameSize.x and maybeNextHead.y >= 0 and maybeNextHead.y < game.gameSize.y;
+            if (game.snake.isTouchingSelf(maybeNextHead) != 0) {
+                std.debug.print("\t💀 touched yourself\n", .{});
+                game.loseCnt = game.snake.isTouchingSelf(maybeNextHead);
+            }
+            if (game.snake.isTouchingFruit(game.fruit)) {
+                game.incrementScore();
+                game.snake.len += 1;
+
+                game.snake.segments[game.snake.len - 1] = game.snake.segments[game.snake.len - 2];
+
+                game.fruit = .{
+                    .x = rand.intRangeAtMost(i32, 0, game.gameSize.x - 1),
+                    .y = rand.intRangeAtMost(i32, 0, game.gameSize.y - 1),
+                };
+                game.fruitTextureOffset = fruitTextures.next();
+            }
+            if (isNextHeadInBounds) {
+                var i = game.snake.len;
+                // start from back of snake and work forward
+                while (i >= 1) {
+                    defer i -= 1;
+
+                    const back = &game.snake.segments[i];
+                    const front = game.snake.segments[i - 1];
+
+                    back.* = front;
+                }
+                head.* = maybeNextHead;
+            } else {
+                std.debug.print("\t💥 touched wall\n", .{});
+                game.loseCnt = game.snake.len - 1;
+            }
+            if (game.loseCnt != 0) {
+                if (!game.isGodMode and game.snake.len >= 2 and game.score > 0) {
+                    game.snake.len = @intCast(game.loseCnt);
+                    game.score = @intCast(game.loseCnt - 1);
+                }
             }
         }
     };
@@ -171,11 +238,13 @@ const FruitTextures = struct {
 const SCALE = 50;
 pub fn main() !void {
     raylib.SetConfigFlags(raylib.FLAG_WINDOW_TRANSPARENT);
-    const screen: raylib.Vector2 = .{ .x = 1200, .y = 800 };
+    const screen: raylib.Vector2 = .{ .x = 2400, .y = 1600 };
     raylib.InitWindow(screen.x, screen.y, "snek");
     defer raylib.CloseWindow();
+
     const fruitTextures = try FruitTextures.generateFruits();
     defer fruitTextures.unload();
+
     raylib.SetTargetFPS(raylib.GetMonitorRefreshRate(raylib.GetCurrentMonitor()));
     raylib.SetTargetFPS(30);
     const snakeTexture = raylib.LoadTextureFromImage(raylib.LoadImage("./🐍.png"));
@@ -183,114 +252,55 @@ pub fn main() !void {
     std.debug.assert(snakeTexture.width == snakeTexture.height);
     const snakeTextureScale: f32 = SCALE / @as(f32, @floatFromInt(snakeTexture.width));
     const font = raylib.LoadFont("./emoji.ttf");
+    defer raylib.UnloadFont(font);
     std.debug.assert(font.texture.id != 0);
 
     const gameSize = screen.x / SCALE * screen.y / SCALE;
     var game = Game(gameSize).init(screen);
-    var dir: Dir = .right;
-    var f: i32 = 0;
-    var fruitTextureOffset: TextureOffset = fruitTextures.next();
+    game.fruitTextureOffset = fruitTextures.next();
     while (!raylib.WindowShouldClose()) {
-        var loseCnt: usize = 0;
-        // UPDATE
-        update: {
-            f += 1;
-            std.debug.print("\n**FRAME {}\n", .{f});
-            defer std.debug.print("---------\n", .{});
-
-            // / input
-            {
-                if (raylib.IsKeyPressed(raylib.KEY_DOWN) and dir != .up) {
-                    dir = .down;
-                } else if (raylib.IsKeyDown(raylib.KEY_UP) and dir != .down) {
-                    dir = .up;
-                } else if (raylib.IsKeyDown(raylib.KEY_LEFT) and dir != .right) {
-                    dir = .left;
-                } else if (raylib.IsKeyDown(raylib.KEY_RIGHT) and dir != .left) {
-                    dir = .right;
-                }
-
-                if (raylib.IsKeyPressed(raylib.KEY_SPACE) or raylib.IsKeyPressed(raylib.KEY_P)) {
-                    game.isPaused = !game.isPaused;
-                }
-                game.shouldAdvanceFrame = raylib.IsKeyPressed(raylib.KEY_F);
-
-                if (raylib.IsKeyPressed(raylib.KEY_PERIOD)) {
-                    std.debug.print("\tcheat: add 1 point\n", .{});
-
-                    game.incrementScore();
-                    game.snake.len += 1;
-                    game.snake.segments[game.snake.len] = game.snake.segments[game.snake.len - 1];
-                }
-
-                if (raylib.IsKeyPressed(raylib.KEY_R)) {
-                    std.debug.print("\tdebug: reset\n", .{});
-                    game = @TypeOf(game).init(screen);
-                }
-
-                if (raylib.IsKeyPressed(raylib.KEY_G)) {
-                    std.debug.print("\tdebug: godmode\n", .{});
-                    game.isGodMode = !game.isGodMode;
-                }
-
-                if (raylib.IsKeyPressed(raylib.KEY_T)) {
-                    game.isTransparent = !game.isTransparent;
-                }
-            }
-            if (game.isPaused and !game.shouldAdvanceFrame) {
-                break :update;
+        game.frameCount += 1;
+        // / input
+        {
+            if (raylib.IsKeyPressed(raylib.KEY_DOWN) and game.dir != .up) {
+                game.dir = .down;
+            } else if (raylib.IsKeyDown(raylib.KEY_UP) and game.dir != .down) {
+                game.dir = .up;
+            } else if (raylib.IsKeyDown(raylib.KEY_LEFT) and game.dir != .right) {
+                game.dir = .left;
+            } else if (raylib.IsKeyDown(raylib.KEY_RIGHT) and game.dir != .left) {
+                game.dir = .right;
             }
 
-            const dirV: XY = switch (dir) {
-                .up => .{ .x = 0, .y = -1 },
-                .down => .{ .x = 0, .y = 1 },
-                .left => .{ .x = -1, .y = 0 },
-                .right => .{ .x = 1, .y = 0 },
-            };
-
-            const head = &game.snake.segments[0];
-            const maybeNextHead = head.add(&dirV);
-            const isNextHeadInBounds = maybeNextHead.x >= 0 and maybeNextHead.x < screen.x / SCALE and maybeNextHead.y >= 0 and maybeNextHead.y < screen.y / SCALE;
-            if (game.snake.isTouchingSelf(maybeNextHead) != 0) {
-                std.debug.print("\t💀 touched yourself\n", .{});
-                loseCnt = game.snake.isTouchingSelf(maybeNextHead);
+            if (raylib.IsKeyPressed(raylib.KEY_SPACE) or raylib.IsKeyPressed(raylib.KEY_P)) {
+                game.isPaused = !game.isPaused;
             }
-            if (game.snake.isTouchingFruit(game.fruit)) {
+            game.shouldAdvanceFrame = raylib.IsKeyPressed(raylib.KEY_F);
+
+            if (raylib.IsKeyPressed(raylib.KEY_PERIOD)) {
+                std.debug.print("\tcheat: add 1 point\n", .{});
+
                 game.incrementScore();
                 game.snake.len += 1;
-
-                game.snake.segments[game.snake.len - 1] = game.snake.segments[game.snake.len - 2];
-
-                game.fruit = .{
-                    .x = rand.intRangeAtMost(i32, 0, screen.x / SCALE - 1),
-                    .y = rand.intRangeAtMost(i32, 0, screen.y / SCALE - 1),
-                };
-                fruitTextureOffset = fruitTextures.next();
+                game.snake.segments[game.snake.len] = game.snake.segments[game.snake.len - 1];
             }
-            if (isNextHeadInBounds) {
-                var i = game.snake.len;
-                // start from back of snake and work forward
-                while (i > 1) {
-                    i -= 1;
 
-                    const back = &game.snake.segments[i];
-                    const front = game.snake.segments[i - 1];
-
-                    back.* = front;
-                }
-                head.* = maybeNextHead;
-            } else {
-                std.debug.print("\t💥 touched wall\n", .{});
-                loseCnt = game.snake.len - 1;
+            if (raylib.IsKeyPressed(raylib.KEY_R)) {
+                std.debug.print("\tdebug: reset\n", .{});
+                game = @TypeOf(game).init(screen);
             }
-            if (loseCnt != 0) {
-                if (!game.isGodMode and game.snake.len >= 2 and game.score > 0) {
-                    game.snake.len = @intCast(loseCnt);
-                    game.score = @intCast(loseCnt - 1);
-                }
+
+            if (raylib.IsKeyPressed(raylib.KEY_G)) {
+                std.debug.print("\tdebug: godmode\n", .{});
+                game.isGodMode = !game.isGodMode;
+            }
+
+            if (raylib.IsKeyPressed(raylib.KEY_T)) {
+                game.isTransparent = !game.isTransparent;
             }
         }
-
+        // UPDATE
+        game.update(fruitTextures);
         // DRAW
         {
             raylib.BeginDrawing();
@@ -300,7 +310,7 @@ pub fn main() !void {
             } else {
                 raylib.ClearBackground(raylib.Color{ .a = 0xF0 });
             }
-            if (loseCnt != 0 and game.score > 0) {
+            if (game.loseCnt != 0 and game.score > 0) {
                 raylib.ClearBackground(raylib.Color{ .r = 0x80, .a = 0x80 });
             }
             raylib.DrawRectangleLinesEx(raylib.Rectangle{ .x = 0, .y = 0, .width = screen.x, .height = screen.y }, 3, raylib.BLACK);
@@ -309,12 +319,12 @@ pub fn main() !void {
             const fruitPosRec: raylib.Rectangle = .{
                 .x = fruitPos.x,
                 .y = fruitPos.y,
-                .width = fruitTextureOffset.scale,
-                .height = fruitTextureOffset.scale,
+                .width = game.fruitTextureOffset.scale,
+                .height = game.fruitTextureOffset.scale,
             };
             raylib.DrawTexturePro(
                 fruitTextures.spriteSheetTexture,
-                fruitTextureOffset.texturePos,
+                game.fruitTextureOffset.texturePos,
                 fruitPosRec,
                 .{},
                 0,
