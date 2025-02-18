@@ -57,6 +57,7 @@ fn Game(maxSize: u32) type {
         shouldAdvanceFrame: bool,
         frameCount: i64,
         dir: Dir,
+        nextDir: Dir,
         gameSize: struct { x: i16, y: i16 },
         loseCnt: usize,
         fruitTextureOffset: TextureOffset,
@@ -79,6 +80,7 @@ fn Game(maxSize: u32) type {
                 .shouldAdvanceFrame = false,
                 .frameCount = 0,
                 .dir = .right,
+                .nextDir = .right,
                 .gameSize = .{ .x = screen.x / SCALE, .y = screen.y / SCALE },
                 .loseCnt = 0,
                 .fruitTextureOffset = .{ .scale = SCALE, .texturePos = undefined },
@@ -98,15 +100,18 @@ fn Game(maxSize: u32) type {
             if (self.score > self.highScore) {
                 self.highScore = self.score;
             }
+            std.debug.print("score: {}\n", .{self.score});
         }
         fn update(game: *@This(), fruitTextures: FruitTextures) void {
-            std.debug.print("\n**FRAME {}\n", .{game.frameCount});
-            defer std.debug.print("---------\n", .{});
+            // std.debug.print("\n**FRAME {}\n", .{game.frameCount});
+            // defer std.debug.print("---------\n", .{});
+            game.loseCnt = 0;
 
             if (game.isPaused and !game.shouldAdvanceFrame) {
                 return;
             }
 
+            game.dir = game.nextDir;
             const dirV: XY = switch (game.dir) {
                 .up => .{ .x = 0, .y = -1 },
                 .down => .{ .x = 0, .y = 1 },
@@ -258,18 +263,19 @@ pub fn main() !void {
     const gameSize = screen.x / SCALE * screen.y / SCALE;
     var game = Game(gameSize).init(screen);
     game.fruitTextureOffset = fruitTextures.next();
+    var startTime = try std.time.Instant.now();
     while (!raylib.WindowShouldClose()) {
         game.frameCount += 1;
         // / input
         {
             if (raylib.IsKeyPressed(raylib.KEY_DOWN) and game.dir != .up) {
-                game.dir = .down;
-            } else if (raylib.IsKeyDown(raylib.KEY_UP) and game.dir != .down) {
-                game.dir = .up;
-            } else if (raylib.IsKeyDown(raylib.KEY_LEFT) and game.dir != .right) {
-                game.dir = .left;
-            } else if (raylib.IsKeyDown(raylib.KEY_RIGHT) and game.dir != .left) {
-                game.dir = .right;
+                game.nextDir = .down;
+            } else if (raylib.IsKeyPressed(raylib.KEY_UP) and game.dir != .down) {
+                game.nextDir = .up;
+            } else if (raylib.IsKeyPressed(raylib.KEY_LEFT) and game.dir != .right) {
+                game.nextDir = .left;
+            } else if (raylib.IsKeyPressed(raylib.KEY_RIGHT) and game.dir != .left) {
+                game.nextDir = .right;
             }
 
             if (raylib.IsKeyPressed(raylib.KEY_SPACE) or raylib.IsKeyPressed(raylib.KEY_P)) {
@@ -311,6 +317,7 @@ pub fn main() !void {
                 raylib.ClearBackground(raylib.Color{ .a = 0xF0 });
             }
             if (game.loseCnt != 0 and game.score > 0) {
+                std.debug.print("loseCnt: {}, score: {}\n", .{ game.loseCnt, game.score });
                 raylib.ClearBackground(raylib.Color{ .r = 0x80, .a = 0x80 });
             }
             raylib.DrawRectangleLinesEx(raylib.Rectangle{ .x = 0, .y = 0, .width = screen.x, .height = screen.y }, 3, raylib.BLACK);
