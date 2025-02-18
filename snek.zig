@@ -306,7 +306,14 @@ pub fn main() !void {
             }
         }
         // UPDATE
-        game.update(fruitTextures);
+        {
+            const now = try std.time.Instant.now();
+            const shouldRunPhysics = now.since(startTime) > std.time.ns_per_ms * 33;
+            if (shouldRunPhysics) {
+                game.update(fruitTextures);
+                startTime = now;
+            }
+        }
         // DRAW
         {
             raylib.BeginDrawing();
