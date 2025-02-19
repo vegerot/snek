@@ -247,7 +247,6 @@ pub fn main() !void {
     defer fruitTextures.unload();
 
     raylib.SetTargetFPS(raylib.GetMonitorRefreshRate(raylib.GetCurrentMonitor()));
-    raylib.SetTargetFPS(30);
     const snakeTexture = raylib.LoadTextureFromImage(raylib.LoadImage("./🐍.png"));
     std.debug.assert(snakeTexture.id != 0);
     std.debug.assert(snakeTexture.width == snakeTexture.height);
