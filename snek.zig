@@ -107,10 +107,6 @@ fn Game(maxSize: u32) type {
             // defer std.debug.print("---------\n", .{});
             game.loseCnt = 0;
 
-            if (game.isPaused and !game.shouldAdvanceFrame) {
-                return;
-            }
-
             game.dir = game.nextDir;
             const dirV: XY = switch (game.dir) {
                 .up => .{ .x = 0, .y = -1 },
@@ -266,7 +262,7 @@ pub fn main() !void {
     var startTime = try std.time.Instant.now();
     while (!raylib.WindowShouldClose()) {
         game.frameCount += 1;
-        // / input
+        // input
         {
             if (raylib.IsKeyPressed(raylib.KEY_DOWN) and game.dir != .up) {
                 game.nextDir = .down;
@@ -308,7 +304,10 @@ pub fn main() !void {
         // UPDATE
         {
             const now = try std.time.Instant.now();
-            const shouldRunPhysics = now.since(startTime) > std.time.ns_per_ms * 33;
+            const tps = 30;
+            const isTimeToRunPhysics = now.since(startTime) > std.time.ns_per_s / tps;
+            const dontRunPhysics = (game.isPaused and !game.shouldAdvanceFrame);
+            const shouldRunPhysics = isTimeToRunPhysics and !dontRunPhysics;
             if (shouldRunPhysics) {
                 game.update(fruitTextures);
                 startTime = now;
