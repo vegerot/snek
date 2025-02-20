@@ -304,6 +304,10 @@ pub fn main() !void {
         }
         // UPDATE
         {
+            if (!raylib.IsWindowFocused()) {
+                game.isPaused = true;
+            }
+
             const now = try std.time.Instant.now();
             const tps = 30;
             const isTimeToRunPhysics = now.since(startTime) > std.time.ns_per_s / tps;
