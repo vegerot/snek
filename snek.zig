@@ -58,9 +58,11 @@ fn Game(maxSize: u32) type {
         frameCount: i64,
         dir: Dir,
         nextDir: Dir,
+        shouldInterpolate: bool,
         gameSize: struct { x: i16, y: i16 },
         loseCnt: usize,
         fruitTextureOffset: TextureOffset,
+        isNextHeadInBounds: bool,
         fn init(comptime screen: raylib.Vector2) @This() {
             var newGame: Game(maxSize) = .{
                 .snake = .{
@@ -84,6 +86,8 @@ fn Game(maxSize: u32) type {
                 .gameSize = .{ .x = screen.x / SCALE, .y = screen.y / SCALE },
                 .loseCnt = 0,
                 .fruitTextureOffset = .{ .scale = SCALE, .texturePos = undefined },
+                .shouldInterpolate = true,
+                .isNextHeadInBounds = true,
             };
             for (newGame.snake.segments[0..newGame.snake.len], 0..) |*seg, i| {
                 seg.* = .{ .x = @intCast(newGame.snake.len - i), .y = 0 };
@@ -117,7 +121,7 @@ fn Game(maxSize: u32) type {
 
             const head = &game.snake.segments[0];
             const maybeNextHead = head.add(&dirV);
-            const isNextHeadInBounds = maybeNextHead.x >= 0 and maybeNextHead.x < game.gameSize.x and maybeNextHead.y >= 0 and maybeNextHead.y < game.gameSize.y;
+            game.isNextHeadInBounds = maybeNextHead.x >= 0 and maybeNextHead.x < game.gameSize.x and maybeNextHead.y >= 0 and maybeNextHead.y < game.gameSize.y;
             if (game.snake.isTouchingSelf(maybeNextHead) != 0) {
                 std.debug.print("\t💀 touched yourself\n", .{});
                 game.loseCnt = game.snake.isTouchingSelf(maybeNextHead);
@@ -134,7 +138,7 @@ fn Game(maxSize: u32) type {
                 };
                 game.fruitTextureOffset = fruitTextures.next();
             }
-            if (isNextHeadInBounds) {
+            if (game.isNextHeadInBounds) {
                 var i = game.snake.len;
                 // start from back of snake and work forward
                 while (i >= 1) {
@@ -247,6 +251,7 @@ pub fn main() !void {
     defer fruitTextures.unload();
 
     raylib.SetTargetFPS(raylib.GetMonitorRefreshRate(raylib.GetCurrentMonitor()));
+
     const snakeImage = raylib.LoadImage("./🐍.png");
     const snakeTexture = raylib.LoadTextureFromImage(snakeImage);
     raylib.SetWindowIcon(snakeImage);
@@ -280,6 +285,8 @@ pub fn main() !void {
             }
             game.shouldAdvanceFrame = raylib.IsKeyPressed(raylib.KEY_F);
 
+            if (raylib.IsKeyPressed(raylib.KEY_I)) game.shouldInterpolate = !game.shouldInterpolate;
+
             if (raylib.IsKeyPressed(raylib.KEY_PERIOD)) {
                 std.debug.print("\tcheat: add 1 point\n", .{});
 
@@ -303,15 +310,15 @@ pub fn main() !void {
             }
         }
         // UPDATE
+        const now = try std.time.Instant.now();
+        const tps = 30;
         {
             if (!raylib.IsWindowFocused()) {
                 game.isPaused = true;
             }
 
-            const now = try std.time.Instant.now();
-            const tps = 30;
-            const isTimeToRunPhysics = now.since(startTime) > std.time.ns_per_s / tps;
             const dontRunPhysics = (game.isPaused and !game.shouldAdvanceFrame);
+            const isTimeToRunPhysics = now.since(startTime) > std.time.ns_per_s / tps;
             const shouldRunPhysics = isTimeToRunPhysics and !dontRunPhysics;
             if (shouldRunPhysics) {
                 game.update(fruitTextures);
@@ -365,12 +372,13 @@ pub fn main() !void {
             for (game.snake.segments[0..game.snake.len], 0..) |seg, p| {
                 const segScreen = seg.toScreenCoords(SCALE);
                 const COLORS = makeTransColors();
-                if (p == 0) {
-                    raylib.DrawTextureEx(snakeTexture, segScreen, 0, snakeTextureScale, raylib.WHITE);
-                } else {
-                    // raylib.DrawRectangleRec(.{ .x = segScreen.x, .y = segScreen.y, .width = SCALE, .height = SCALE }, COLORS[p % COLORS.len]);
-                    raylib.DrawTextureEx(snakeTexture, segScreen, 0, snakeTextureScale, COLORS[p % COLORS.len]);
-                }
+                const isSnakeHead = p == 0;
+                const color = if (isSnakeHead) raylib.WHITE else COLORS[p % COLORS.len];
+                const pct = 1 - @as(f32, @floatFromInt(now.since(startTime))) / (@as(f32, std.time.ns_per_s) / tps);
+                const pctClamped = std.math.clamp(pct, 0, 1);
+                const shouldInterpolate = game.shouldInterpolate and (game.isNextHeadInBounds or (p == game.snake.len - 1 and p != 0));
+                const interpolatedPosition: raylib.Vector2 = raylib.Vector2Lerp(segScreen, game.snake.segments[p + 1].toScreenCoords(SCALE), if (shouldInterpolate) pctClamped else 0);
+                raylib.DrawTextureEx(snakeTexture, interpolatedPosition, 0, snakeTextureScale, color);
             }
             raylib.DrawFPS(screen.x - 100, 0);
         }
