@@ -64,13 +64,13 @@ fn Game(maxSize: u32) type {
             isNextHeadInBounds: bool,
         },
         options: struct {
-            gameSize: struct { x: i16, y: i16 },
+            gameSize: struct { x: i32, y: i32 },
             isGodMode: bool,
             isTransparent: bool,
             isPaused: bool,
             shouldInterpolate: bool,
         },
-        fn init(comptime screen: raylib.Vector2) @This() {
+        fn init(screen: XY) @This() {
             var newGame: Game(maxSize) = .{
                 .state = .{
                     .snake = .{
@@ -79,8 +79,8 @@ fn Game(maxSize: u32) type {
                         .segments = undefined,
                     },
                     .fruit = XY{
-                        .x = rand.intRangeAtMost(i32, 0, screen.x / SCALE - 1),
-                        .y = rand.intRangeAtMost(i32, 0, screen.y / SCALE - 1),
+                        .x = rand.intRangeAtMost(i32, 0, @divFloor(screen.x, SCALE) - 1),
+                        .y = rand.intRangeAtMost(i32, 0, @divFloor(screen.y, SCALE) - 1),
                     },
                     .score = 0,
                     .highScore = 0,
@@ -88,7 +88,7 @@ fn Game(maxSize: u32) type {
                     .fruitTextureOffset = .{ .scale = SCALE, .texturePos = undefined },
                 },
                 .options = .{
-                    .gameSize = .{ .x = screen.x / SCALE, .y = screen.y / SCALE },
+                    .gameSize = .{ .x = @divFloor(screen.x, SCALE), .y = @divFloor(screen.y, SCALE) },
                     .isGodMode = false,
                     .isTransparent = true,
                     .isPaused = false,
@@ -257,9 +257,13 @@ const FruitTextures = struct {
 const SCALE = 50;
 pub fn main() !void {
     raylib.SetConfigFlags(raylib.FLAG_WINDOW_TRANSPARENT);
-    const screen: raylib.Vector2 = .{ .x = 2400, .y = 1600 };
-    raylib.InitWindow(screen.x, screen.y, "snek");
+    raylib.InitWindow(1280, 800, "snek");
     defer raylib.CloseWindow();
+
+    raylib.MaximizeWindow();
+    raylib.ToggleBorderlessWindowed();
+    const screen: XY = .{ .x = raylib.GetScreenWidth(), .y = raylib.GetScreenHeight() };
+    std.debug.print("screen: {}\n", .{screen});
 
     const fruitTextures = try FruitTextures.generateFruits();
     defer fruitTextures.unload();
@@ -272,14 +276,17 @@ pub fn main() !void {
     std.debug.assert(snakeTexture.id != 0);
     std.debug.assert(snakeTexture.width == snakeTexture.height);
     const snakeTextureScale: f32 = SCALE / @as(f32, @floatFromInt(snakeTexture.width));
+
     const font = raylib.LoadFont("./emoji.ttf");
     defer raylib.UnloadFont(font);
     std.debug.assert(font.texture.id != 0);
 
-    const gameSize = screen.x / SCALE * screen.y / SCALE;
-    var game = Game(gameSize).init(screen);
+    // TODO: don't hardcode game size
+    var game = Game(1 << 15).init(screen);
     game.state.fruitTextureOffset = fruitTextures.next();
+
     var startTime = try std.time.Instant.now();
+
     while (!raylib.WindowShouldClose()) {
         game.tickState.frameCount += 1;
         // input
@@ -353,7 +360,7 @@ pub fn main() !void {
                 std.debug.print("loseCnt: {}, score: {}\n", .{ game.tickState.loseCnt, game.state.score });
                 raylib.ClearBackground(raylib.Color{ .r = 0x80, .a = 0x80 });
             }
-            raylib.DrawRectangleLinesEx(raylib.Rectangle{ .x = 0, .y = 0, .width = screen.x, .height = screen.y }, 3, raylib.BLACK);
+            raylib.DrawRectangleLinesEx(raylib.Rectangle{ .x = 0, .y = 0, .width = @floatFromInt(screen.x), .height = @floatFromInt(screen.y) }, 3, raylib.BLACK);
 
             const fruitPos = game.state.fruit.toScreenCoords(SCALE);
             const fruitPosRec: raylib.Rectangle = .{
