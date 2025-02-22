@@ -70,6 +70,7 @@ fn Game(maxSize: u32) type {
             isTransparent: bool,
             isPaused: bool,
             shouldInterpolate: bool,
+            isFullScreen: bool,
         },
         fn init(screen: XY) @This() {
             var newGame: Game(maxSize) = .{
@@ -95,6 +96,7 @@ fn Game(maxSize: u32) type {
                     .isTransparent = true,
                     .isPaused = false,
                     .shouldInterpolate = true,
+                    .isFullScreen = false,
                 },
                 .tickState = .{
                     .shouldAdvanceFrame = false,
@@ -167,7 +169,7 @@ fn Game(maxSize: u32) type {
                 }
                 head.* = maybeNextHead;
             } else {
-                std.debug.print("\t💥 touched wall\n", .{});
+                // std.debug.print("\t💥 touched wall\n", .{});
                 game.tickState.loseCnt = snake.len - 1;
             }
             if (game.tickState.loseCnt != 0) {
@@ -176,6 +178,41 @@ fn Game(maxSize: u32) type {
                     game.state.score = @intCast(game.tickState.loseCnt - 1);
                 }
             }
+        }
+        fn toggleFullscreen(self: *@This()) void {
+            std.debug.print("BEFORE: screenSize: {}, gameSize: {}\n", .{ self.state.screenSize, self.options.gameSize });
+            defer std.debug.print("AFTER: screenSize: {}, gameSize: {}\n", .{ self.state.screenSize, self.options.gameSize });
+            if (self.options.isFullScreen) {
+                raylib.RestoreWindow();
+            } else {
+                raylib.MaximizeWindow();
+            }
+            self.options.isFullScreen = !self.options.isFullScreen;
+            self.resizeGameToWindow();
+        }
+        fn resizeGameToWindow(self: *@This()) void {
+            {
+                // HACK: `raylib.GetScreenWidth/Height` won't return the correct values until
+                // after a few draws
+                // raylib.SetTargetFPS(2400);
+                // defer raylib.SetTargetFPS(240);
+                for (0..9) |_| {
+                    raylib.BeginDrawing();
+                    raylib.EndDrawing();
+                }
+            }
+            self.state.screenSize = .{ .x = raylib.GetScreenWidth(), .y = raylib.GetScreenHeight() };
+            self.options.gameSize = .{ .x = @divFloor(self.state.screenSize.x, SCALE), .y = @divFloor(self.state.screenSize.y, SCALE) };
+
+            for (self.state.snake.segments[0..self.state.snake.len], 0..) |*seg, i| {
+                seg.* = .{ .x = @mod(@as(i32, @intCast(self.state.snake.len - i)), self.options.gameSize.x - 2), .y = @divFloor(@as(i32, @intCast(i)), self.options.gameSize.y - 2) };
+            }
+            self.state.dir = .right;
+            self.tickState.nextDir = .right;
+            self.state.fruit = .{
+                .x = rand.intRangeAtMost(i32, 0, self.options.gameSize.x - 1),
+                .y = rand.intRangeAtMost(i32, 0, self.options.gameSize.y - 1),
+            };
         }
     };
     return game;
@@ -258,9 +295,10 @@ const FruitTextures = struct {
 
 const SCALE = 50;
 pub fn main() !void {
-    raylib.SetConfigFlags(raylib.FLAG_WINDOW_TRANSPARENT);
+    raylib.SetConfigFlags(raylib.FLAG_WINDOW_TRANSPARENT | raylib.FLAG_WINDOW_RESIZABLE);
     raylib.InitWindow(1280, 800, "snek");
     defer raylib.CloseWindow();
+    std.debug.assert(raylib.IsWindowReady());
 
     const initialScreen: XY = .{ .x = raylib.GetScreenWidth(), .y = raylib.GetScreenHeight() };
     std.debug.print("screen: {}\n", .{initialScreen});
@@ -304,7 +342,7 @@ pub fn main() !void {
             if (raylib.IsKeyPressed(raylib.KEY_SPACE) or raylib.IsKeyPressed(raylib.KEY_P)) {
                 game.options.isPaused = !game.options.isPaused;
             }
-            game.tickState.shouldAdvanceFrame = raylib.IsKeyPressed(raylib.KEY_F);
+            game.tickState.shouldAdvanceFrame = raylib.IsKeyPressed(raylib.KEY_N);
 
             if (raylib.IsKeyPressed(raylib.KEY_I)) game.options.shouldInterpolate = !game.options.shouldInterpolate;
 
@@ -329,6 +367,9 @@ pub fn main() !void {
             if (raylib.IsKeyPressed(raylib.KEY_T)) {
                 game.options.isTransparent = !game.options.isTransparent;
             }
+            if (raylib.IsKeyPressed(raylib.KEY_F)) {
+                game.toggleFullscreen();
+            }
         }
         // UPDATE
         const now = try std.time.Instant.now();
@@ -336,6 +377,9 @@ pub fn main() !void {
         {
             if (!raylib.IsWindowFocused()) {
                 game.options.isPaused = true;
+            }
+            if (raylib.IsWindowResized()) {
+                game.resizeGameToWindow();
             }
 
             const dontRunPhysics = (game.options.isPaused and !game.tickState.shouldAdvanceFrame);
