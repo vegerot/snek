@@ -398,7 +398,10 @@ pub fn main() !void {
                 const color = if (isSnakeHead) raylib.WHITE else COLORS[p % COLORS.len];
                 const pct = 1 - @as(f32, @floatFromInt(now.since(startTime))) / (@as(f32, std.time.ns_per_s) / tps);
                 const pctClamped = std.math.clamp(pct, 0, 1);
-                const shouldInterpolate = game.options.shouldInterpolate and (game.tickState.isNextHeadInBounds or (p == snake.len - 1 and p != 0));
+                const fps = raylib.GetFPS();
+                const isFpsLargerThanTps = fps > tps;
+                const shouldAlwaysInterpolateThisSegment = game.tickState.isNextHeadInBounds or (p == snake.len - 1 and p != 0);
+                const shouldInterpolate = game.options.shouldInterpolate and isFpsLargerThanTps and shouldAlwaysInterpolateThisSegment;
                 const interpolatedPosition: raylib.Vector2 = raylib.Vector2Lerp(segScreen, snake.segments[p + 1].toScreenCoords(SCALE), if (shouldInterpolate) pctClamped else 0);
                 raylib.DrawTextureEx(snakeTexture, interpolatedPosition, 0, snakeTextureScale, color);
             }
