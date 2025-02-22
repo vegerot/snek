@@ -54,6 +54,7 @@ fn Game(maxSize: u32) type {
             highScore: usize,
             dir: Dir,
             fruitTextureOffset: TextureOffset,
+            screenSize: XY,
         },
         /// state that's only needed for this tick or frame
         tickState: struct {
@@ -86,6 +87,7 @@ fn Game(maxSize: u32) type {
                     .highScore = 0,
                     .dir = .right,
                     .fruitTextureOffset = .{ .scale = SCALE, .texturePos = undefined },
+                    .screenSize = screen,
                 },
                 .options = .{
                     .gameSize = .{ .x = @divFloor(screen.x, SCALE), .y = @divFloor(screen.y, SCALE) },
@@ -260,10 +262,8 @@ pub fn main() !void {
     raylib.InitWindow(1280, 800, "snek");
     defer raylib.CloseWindow();
 
-    raylib.MaximizeWindow();
-    raylib.ToggleBorderlessWindowed();
-    const screen: XY = .{ .x = raylib.GetScreenWidth(), .y = raylib.GetScreenHeight() };
-    std.debug.print("screen: {}\n", .{screen});
+    const initialScreen: XY = .{ .x = raylib.GetScreenWidth(), .y = raylib.GetScreenHeight() };
+    std.debug.print("screen: {}\n", .{initialScreen});
 
     const fruitTextures = try FruitTextures.generateFruits();
     defer fruitTextures.unload();
@@ -282,7 +282,7 @@ pub fn main() !void {
     std.debug.assert(font.texture.id != 0);
 
     // TODO: don't hardcode game size
-    var game = Game(1 << 15).init(screen);
+    var game = Game(1 << 15).init(initialScreen);
     game.state.fruitTextureOffset = fruitTextures.next();
 
     var startTime = try std.time.Instant.now();
@@ -318,7 +318,7 @@ pub fn main() !void {
 
             if (raylib.IsKeyPressed(raylib.KEY_R)) {
                 std.debug.print("\tdebug: reset\n", .{});
-                game = @TypeOf(game).init(screen);
+                game = @TypeOf(game).init(game.state.screenSize);
             }
 
             if (raylib.IsKeyPressed(raylib.KEY_G)) {
@@ -360,7 +360,7 @@ pub fn main() !void {
                 std.debug.print("loseCnt: {}, score: {}\n", .{ game.tickState.loseCnt, game.state.score });
                 raylib.ClearBackground(raylib.Color{ .r = 0x80, .a = 0x80 });
             }
-            raylib.DrawRectangleLinesEx(raylib.Rectangle{ .x = 0, .y = 0, .width = @floatFromInt(screen.x), .height = @floatFromInt(screen.y) }, 3, raylib.BLACK);
+            raylib.DrawRectangleLinesEx(raylib.Rectangle{ .x = 0, .y = 0, .width = @floatFromInt(game.state.screenSize.x), .height = @floatFromInt(game.state.screenSize.x) }, 3, raylib.BLACK);
 
             const fruitPos = game.state.fruit.toScreenCoords(SCALE);
             const fruitPosRec: raylib.Rectangle = .{
@@ -405,7 +405,7 @@ pub fn main() !void {
                 const interpolatedPosition: raylib.Vector2 = raylib.Vector2Lerp(segScreen, snake.segments[p + 1].toScreenCoords(SCALE), if (shouldInterpolate) pctClamped else 0);
                 raylib.DrawTextureEx(snakeTexture, interpolatedPosition, 0, snakeTextureScale, color);
             }
-            raylib.DrawFPS(screen.x - 100, 0);
+            raylib.DrawFPS(game.state.screenSize.x - 100, 0);
         }
     }
 }
