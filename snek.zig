@@ -75,6 +75,7 @@ fn Game(maxSize: u32) type {
             isPaused: bool,
             shouldInterpolate: bool,
             isFullScreen: bool,
+            tps: u32,
         },
         fn init(screen: XY) @This() {
             var newGame: Game(maxSize) = .{
@@ -101,6 +102,7 @@ fn Game(maxSize: u32) type {
                     .isPaused = false,
                     .shouldInterpolate = true,
                     .isFullScreen = false,
+                    .tps = 30,
                 },
                 .tickState = .{
                     .shouldAdvanceFrame = false,
@@ -408,7 +410,6 @@ pub fn main() !void {
         }
         // UPDATE
         const now = try std.time.Instant.now();
-        const tps = 30;
         {
             if (!raylib.IsWindowFocused()) {
                 game.options.isPaused = true;
@@ -418,7 +419,7 @@ pub fn main() !void {
             }
 
             const dontRunPhysics = (game.options.isPaused and !game.tickState.shouldAdvanceFrame);
-            const isTimeToRunPhysics = now.since(startTime) > std.time.ns_per_s / tps;
+            const isTimeToRunPhysics = now.since(startTime) > std.time.ns_per_s / game.options.tps;
             const shouldRunPhysics = isTimeToRunPhysics and !dontRunPhysics;
             if (shouldRunPhysics) {
                 game.update(fruitTextures);
@@ -471,10 +472,10 @@ pub fn main() !void {
                 const COLORS = makeTransColors();
                 const isSnakeHead = p == 0;
                 const color = if (isSnakeHead) raylib.WHITE else COLORS[p % COLORS.len];
-                const pct = 1 - @as(f32, @floatFromInt(now.since(startTime))) / (@as(f32, std.time.ns_per_s) / tps);
+                const pct = 1 - @as(f32, @floatFromInt(now.since(startTime))) / (@as(f32, std.time.ns_per_s) / @as(f32, @floatFromInt(game.options.tps)));
                 const pctClamped = std.math.clamp(pct, 0, 1);
                 const fps = raylib.GetFPS();
-                const isFpsLargerThanTps = fps > tps;
+                const isFpsLargerThanTps = fps > game.options.tps;
                 var expectedPosition = snake.segments[p + 1];
                 const isNextSegmentAcrossWrap = snake.segments[p + 1].sub(&snake.segments[p]).magnitude2() > 2;
                 if (isNextSegmentAcrossWrap) {
