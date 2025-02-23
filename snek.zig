@@ -74,6 +74,7 @@ fn Game(maxSize: u32) type {
             isTransparent: bool,
             isPaused: bool,
             shouldInterpolate: bool,
+            shouldShowHitbox: bool,
             isFullScreen: bool,
             tps: u32,
         },
@@ -101,6 +102,7 @@ fn Game(maxSize: u32) type {
                     .isTransparent = true,
                     .isPaused = false,
                     .shouldInterpolate = true,
+                    .shouldShowHitbox = false,
                     .isFullScreen = false,
                     .tps = 10,
                 },
@@ -306,9 +308,9 @@ const FruitTextures = struct {
     spriteSheetTexture: raylib.Texture2D,
     textures: [texturesCount]TextureOffset,
     fn generateFruits() !FruitTextures {
-        const spriteSheetImage = raylib.LoadImageFromMemory(".png", spriteSheetPng, spriteSheetPng.len);
-        std.debug.assert(spriteSheetImage.data != null);
-        const spriteSheetTexture = raylib.LoadTextureFromImage(spriteSheetImage);
+        const spritesheetImage = raylib.LoadImageFromMemory(".png", spriteSheetPng, spriteSheetPng.len);
+        std.debug.assert(spritesheetImage.data != null);
+        const spriteSheetTexture = raylib.LoadTextureFromImage(spritesheetImage);
         const avgHeight = 96; //px
         const avgWidth = 96; // px
         // // height=96px, average width=954px/10=95
@@ -355,13 +357,13 @@ pub fn main() !void {
 
     raylib.SetTargetFPS(2 * raylib.GetMonitorRefreshRate(raylib.GetCurrentMonitor()));
 
-    const snakeImage = raylib.LoadImageFromMemory(".png", snekPng, snekPng.len);
+    var snakeImage = raylib.LoadImageFromMemory(".png", snekPng, snekPng.len);
     std.debug.assert(snakeImage.data != null);
+    raylib.ImageFlipVertical(&snakeImage);
     const snakeTexture = raylib.LoadTextureFromImage(snakeImage);
     raylib.SetWindowIcon(snakeImage);
     std.debug.assert(snakeTexture.id != 0);
     std.debug.assert(snakeTexture.width == snakeTexture.height);
-    const snakeTextureScale: f32 = SCALE / @as(f32, @floatFromInt(snakeTexture.width));
 
     const font = raylib.LoadFontFromMemory(".ttf", fontTtf, fontTtf.len, 32, 0, 95);
     defer raylib.UnloadFont(font);
@@ -419,6 +421,9 @@ pub fn main() !void {
 
             if (raylib.IsKeyPressed(raylib.KEY_T)) {
                 game.options.isTransparent = !game.options.isTransparent;
+            }
+            if (raylib.IsKeyPressed(raylib.KEY_H)) {
+                game.options.shouldShowHitbox = !game.options.shouldShowHitbox;
             }
         }
         // UPDATE
@@ -501,7 +506,34 @@ pub fn main() !void {
                 const shouldAlwaysInterpolateThisSegment = (game.tickState.isNextHeadInBounds or (p == snake.len - 1 and p != 0));
                 const shouldInterpolate = game.options.shouldInterpolate and isFpsLargerThanTps and shouldAlwaysInterpolateThisSegment;
                 const interpolatedPosition: raylib.Vector2 = raylib.Vector2Lerp(segScreen, expectedPosition.toScreenCoords(SCALE), if (shouldInterpolate) pctClamped else 0);
-                raylib.DrawTextureEx(snakeTexture, interpolatedPosition, 0, snakeTextureScale, color);
+                const rotation: f32 = switch (game.state.dir) {
+                    .right => 180,
+                    .left => 0,
+                    .up => 90,
+                    .down => 270,
+                };
+                const origin: raylib.Vector2 = switch (game.state.dir) {
+                    .right => .{ .x = SCALE, .y = SCALE },
+                    .left => .{ .x = 0, .y = 0 },
+                    .up => .{ .x = 0, .y = SCALE },
+                    .down => .{ .x = SCALE, .y = 0 },
+                };
+                raylib.DrawTexturePro(
+                    snakeTexture,
+                    .{ .x = 0, .y = 0, .width = @floatFromInt(snakeTexture.width), .height = @floatFromInt(snakeTexture.height) },
+                    .{ .x = interpolatedPosition.x, .y = interpolatedPosition.y, .height = SCALE, .width = SCALE },
+                    origin,
+                    rotation,
+                    color,
+                );
+                if (game.options.shouldShowHitbox) {
+                    raylib.DrawRectanglePro(
+                        .{ .x = interpolatedPosition.x, .y = interpolatedPosition.y, .height = SCALE, .width = SCALE },
+                        .{ .x = 0, .y = 0 },
+                        0,
+                        color,
+                    );
+                }
             }
             raylib.DrawFPS(game.state.screenSize.x - 100, 0);
         }
