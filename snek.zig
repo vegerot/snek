@@ -6,6 +6,10 @@ const raylib = @cImport({
     @cInclude("raymath.h");
 });
 
+const spriteSheetPng = @embedFile("./emoji.png");
+const snekPng = @embedFile("./🐍.png");
+const fontTtf = @embedFile("./emoji.ttf");
+
 fn buildEnumFromC(comptime import: anytype, comptime prefix: []const u8) type {
     comptime var enum_fields: [1024]std.builtin.Type.EnumField = undefined;
     comptime var count = 0;
@@ -267,7 +271,9 @@ const FruitTextures = struct {
     spriteSheetTexture: raylib.Texture2D,
     textures: [texturesCount]TextureOffset,
     fn generateFruits() !FruitTextures {
-        const spriteSheetTexture = raylib.LoadTexture("./emoji.png");
+        const spriteSheetImage = raylib.LoadImageFromMemory(".png", spriteSheetPng, spriteSheetPng.len);
+        std.debug.assert(spriteSheetImage.data != null);
+        const spriteSheetTexture = raylib.LoadTextureFromImage(spriteSheetImage);
         const avgHeight = 96; //px
         const avgWidth = 96; // px
         // // height=96px, average width=954px/10=95
@@ -308,14 +314,15 @@ pub fn main() !void {
 
     raylib.SetTargetFPS(raylib.GetMonitorRefreshRate(raylib.GetCurrentMonitor()));
 
-    const snakeImage = raylib.LoadImage("./🐍.png");
+    const snakeImage = raylib.LoadImageFromMemory(".png", snekPng, snekPng.len);
+    std.debug.assert(snakeImage.data != null);
     const snakeTexture = raylib.LoadTextureFromImage(snakeImage);
     raylib.SetWindowIcon(snakeImage);
     std.debug.assert(snakeTexture.id != 0);
     std.debug.assert(snakeTexture.width == snakeTexture.height);
     const snakeTextureScale: f32 = SCALE / @as(f32, @floatFromInt(snakeTexture.width));
 
-    const font = raylib.LoadFont("./emoji.ttf");
+    const font = raylib.LoadFontFromMemory(".ttf", fontTtf, fontTtf.len, 32, 0, 95);
     defer raylib.UnloadFont(font);
     std.debug.assert(font.texture.id != 0);
 
