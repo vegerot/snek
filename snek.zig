@@ -462,11 +462,12 @@ pub fn main() !void {
                 const fps = raylib.GetFPS();
                 const isFpsLargerThanTps = fps > tps;
                 var expectedPosition = snake.segments[p + 1];
-                if (snake.segments[p + 1].sub(&snake.segments[p]).magnitude2() > 2) {
-                    const dx = snake.segments[p + 1].sub(&snake.segments[p]).x;
-                    const dy = snake.segments[p + 1].sub(&snake.segments[p]).y;
-                    expectedPosition.x = snake.segments[p].x + -sign(dx);
-                    expectedPosition.y = snake.segments[p].y + -sign(dy);
+                const isNextSegmentAcrossWrap = snake.segments[p + 1].sub(&snake.segments[p]).magnitude2() > 2;
+                if (isNextSegmentAcrossWrap) {
+                    const interpolateHorizAmt = -sign(snake.segments[p + 1].sub(&snake.segments[p]).x);
+                    const interpolateVertAmt = -sign(snake.segments[p + 1].sub(&snake.segments[p]).y);
+                    expectedPosition.x = snake.segments[p].x + interpolateHorizAmt;
+                    expectedPosition.y = snake.segments[p].y + interpolateVertAmt;
                 }
                 const shouldAlwaysInterpolateThisSegment = (game.tickState.isNextHeadInBounds or (p == snake.len - 1 and p != 0));
                 const shouldInterpolate = game.options.shouldInterpolate and isFpsLargerThanTps and shouldAlwaysInterpolateThisSegment;
@@ -479,7 +480,12 @@ pub fn main() !void {
 }
 
 fn sign(x: i32) i32 {
-  if (x < 0) return -1;
-  if (x > 0) return 1;
-  return 0;
+    if (x < 0) return -1;
+    if (x > 0) return 1;
+    return 0;
 }
+
+// ideas:
+// slower
+// always on top
+// click through
