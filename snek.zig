@@ -435,10 +435,6 @@ pub fn main() !void {
             } else {
                 raylib.ClearBackground(raylib.Color{ .a = 0xF0 });
             }
-            if (game.tickState.loseCnt != 0 and game.state.score > 0) {
-                std.debug.print("loseCnt: {}, score: {}\n", .{ game.tickState.loseCnt, game.state.score });
-                raylib.ClearBackground(raylib.Color{ .r = 0x80, .a = 0x80 });
-            }
             raylib.DrawRectangleLinesEx(raylib.Rectangle{ .x = 0, .y = 0, .width = @floatFromInt(game.state.screenSize.x), .height = @floatFromInt(game.state.screenSize.x) }, 3, raylib.BLACK);
 
             const fruitPos = game.state.fruit.toScreenCoords(SCALE);
