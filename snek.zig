@@ -384,9 +384,16 @@ pub fn main() !void {
                 game.tickState.nextDir = .right;
             }
 
+            if (raylib.IsKeyPressed(raylib.KEY_F)) {
+                game.toggleFullscreen();
+            }
+
             if (raylib.IsKeyPressed(raylib.KEY_SPACE) or raylib.IsKeyPressed(raylib.KEY_P)) {
                 game.options.isPaused = !game.options.isPaused;
             }
+
+            // debug stuff
+
             game.tickState.shouldAdvanceFrame = raylib.IsKeyPressed(raylib.KEY_N);
 
             if (raylib.IsKeyPressed(raylib.KEY_I)) game.options.shouldInterpolate = !game.options.shouldInterpolate;
@@ -409,9 +416,6 @@ pub fn main() !void {
 
             if (raylib.IsKeyPressed(raylib.KEY_T)) {
                 game.options.isTransparent = !game.options.isTransparent;
-            }
-            if (raylib.IsKeyPressed(raylib.KEY_F)) {
-                game.toggleFullscreen();
             }
         }
         // UPDATE
