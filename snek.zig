@@ -102,7 +102,7 @@ fn Game(maxSize: u32) type {
                     .isPaused = false,
                     .shouldInterpolate = true,
                     .isFullScreen = false,
-                    .tps = 30,
+                    .tps = 10,
                 },
                 .tickState = .{
                     .shouldAdvanceFrame = false,
@@ -130,6 +130,9 @@ fn Game(maxSize: u32) type {
             self.state.score = score;
             if (self.state.score > self.state.highScore) {
                 self.state.highScore = self.state.score;
+                const initialTps = 10; // TODO: put this somewhere else
+                const maxTps = 45; // TODO: put this somewhere else
+                self.options.tps = @intCast(std.math.clamp(initialTps + score, initialTps, maxTps));
             }
             var snake = &self.state.snake;
             snake.len = @intCast(self.state.score + 1);
