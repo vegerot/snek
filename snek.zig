@@ -123,11 +123,21 @@ fn Game(maxSize: u32) type {
             self.score = 0;
         }
         fn incrementScore(self: *@This()) void {
-            self.state.score += 1;
+            self.setScore(self.state.score + 1);
+            std.debug.print("score: {}\n", .{self.state.score});
+        }
+        fn setScore(self: *@This(), score: usize) void {
+            self.state.score = score;
             if (self.state.score > self.state.highScore) {
                 self.state.highScore = self.state.score;
             }
-            std.debug.print("score: {}\n", .{self.state.score});
+            var snake = &self.state.snake;
+            snake.len = @intCast(self.state.score + 1);
+
+            // FIXME: this is buggy if we increase the snake len by more than
+            // one at once, which we don't do yet
+            if (snake.len >= 1) snake.segments[snake.len] = snake.segments[snake.len - 1];
+            if (snake.len >= 2) snake.segments[snake.len - 1] = snake.segments[snake.len - 2];
         }
         fn update(game: *@This(), fruitTextures: FruitTextures) void {
             // std.debug.print("\n**FRAME {}\n", .{game.frameCount});
@@ -168,7 +178,6 @@ fn Game(maxSize: u32) type {
             }
             if (snake.isTouchingFruit(game.state.fruit)) {
                 game.incrementScore();
-                snake.len += 1;
 
                 snake.segments[snake.len - 1] = snake.segments[snake.len - 2];
 
@@ -196,8 +205,7 @@ fn Game(maxSize: u32) type {
             }
             if (game.tickState.loseCnt != 0) {
                 if (!game.options.isGodMode and snake.len >= 2 and game.state.score > 0) {
-                    snake.len = @intCast(game.tickState.loseCnt);
-                    game.state.score = @intCast(game.tickState.loseCnt - 1);
+                    game.setScore(@intCast(game.tickState.loseCnt - 1));
                 }
             }
         }
@@ -387,8 +395,6 @@ pub fn main() !void {
                 std.debug.print("\tcheat: add 1 point\n", .{});
 
                 game.incrementScore();
-                game.state.snake.len += 1;
-                game.state.snake.segments[game.state.snake.len] = game.state.snake.segments[game.state.snake.len - 1];
             }
 
             if (raylib.IsKeyPressed(raylib.KEY_R)) {
@@ -459,7 +465,8 @@ pub fn main() !void {
             score[1] = scoreDigits[1];
             score[2] = 0; // null-terminate
             raylib.DrawText(&score, 10, 3, 69, raylib.PURPLE);
-            if (game.state.score != game.state.highScore) {
+            const shouldDrawHighScore = game.state.score != game.state.highScore;
+            if (shouldDrawHighScore) {
                 var highScore: [3]u8 = undefined;
                 const highScoreDigits = std.fmt.digits2(game.state.highScore);
                 highScore[0] = highScoreDigits[0];
