@@ -321,6 +321,12 @@ const FruitTextures = struct {
     }
 };
 
+fn sign(x: i32) i32 {
+    if (x < 0) return -1;
+    if (x > 0) return 1;
+    return 0;
+}
+
 const SCALE = 50;
 pub fn main() !void {
     raylib.SetConfigFlags(raylib.FLAG_WINDOW_TRANSPARENT | raylib.FLAG_WINDOW_RESIZABLE);
@@ -489,12 +495,6 @@ pub fn main() !void {
             raylib.DrawFPS(game.state.screenSize.x - 100, 0);
         }
     }
-}
-
-fn sign(x: i32) i32 {
-    if (x < 0) return -1;
-    if (x > 0) return 1;
-    return 0;
 }
 
 // ideas:
