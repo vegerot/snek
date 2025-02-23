@@ -143,10 +143,22 @@ fn Game(maxSize: u32) type {
 
             const head = &snake.segments[0];
             var maybeNextHead = head.add(&dirV);
-            if (maybeNextHead.x < 0) { maybeNextHead.x += game.options.gameSize.x; }
-            if (maybeNextHead.y < 0) { maybeNextHead.y += game.options.gameSize.y; }
-            if (maybeNextHead.x >= game.options.gameSize.x) { maybeNextHead.x -= game.options.gameSize.x; }
-            if (maybeNextHead.y >= game.options.gameSize.y) { maybeNextHead.y -= game.options.gameSize.y; }
+            if (maybeNextHead.x < 0) {
+                maybeNextHead.x += game.options.gameSize.x;
+                game.tickState.loseCnt = snake.len - 1;
+            }
+            if (maybeNextHead.y < 0) {
+                maybeNextHead.y += game.options.gameSize.y;
+                game.tickState.loseCnt = snake.len - 1;
+            }
+            if (maybeNextHead.x >= game.options.gameSize.x) {
+                maybeNextHead.x -= game.options.gameSize.x;
+                game.tickState.loseCnt = snake.len - 1;
+            }
+            if (maybeNextHead.y >= game.options.gameSize.y) {
+                maybeNextHead.y -= game.options.gameSize.y;
+                game.tickState.loseCnt = snake.len - 1;
+            }
             //game.tickState.isNextHeadInBounds = maybeNextHead.x >= 0 and maybeNextHead.x < game.options.gameSize.x and maybeNextHead.y >= 0 and maybeNextHead.y < game.options.gameSize.y;
             if (snake.isTouchingSelf(maybeNextHead) != 0) {
                 std.debug.print("\t💀 touched yourself\n", .{});
