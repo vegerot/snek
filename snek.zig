@@ -142,8 +142,12 @@ fn Game(maxSize: u32) type {
             };
 
             const head = &snake.segments[0];
-            const maybeNextHead = head.add(&dirV);
-            game.tickState.isNextHeadInBounds = maybeNextHead.x >= 0 and maybeNextHead.x < game.options.gameSize.x and maybeNextHead.y >= 0 and maybeNextHead.y < game.options.gameSize.y;
+            var maybeNextHead = head.add(&dirV);
+            if (maybeNextHead.x < 0) { maybeNextHead.x += game.options.gameSize.x; }
+            if (maybeNextHead.y < 0) { maybeNextHead.y += game.options.gameSize.y; }
+            if (maybeNextHead.x >= game.options.gameSize.x) { maybeNextHead.x -= game.options.gameSize.x; }
+            if (maybeNextHead.y >= game.options.gameSize.y) { maybeNextHead.y -= game.options.gameSize.y; }
+            //game.tickState.isNextHeadInBounds = maybeNextHead.x >= 0 and maybeNextHead.x < game.options.gameSize.x and maybeNextHead.y >= 0 and maybeNextHead.y < game.options.gameSize.y;
             if (snake.isTouchingSelf(maybeNextHead) != 0) {
                 std.debug.print("\t💀 touched yourself\n", .{});
                 game.tickState.loseCnt = snake.isTouchingSelf(maybeNextHead);
@@ -231,6 +235,12 @@ const XY = struct {
     }
     fn add(self: *const This, that: *const This) This {
         return .{ .x = self.x + that.x, .y = self.y + that.y };
+    }
+    fn sub(self: *const This, that: *const This) This {
+        return .{ .x = self.x - that.x, .y = self.y - that.y };
+    }
+    fn magnitude2(self: *const This) i32 {
+        return self.x * self.x + self.y * self.y;
     }
     fn isEqual(this: This, that: This) bool {
         return this.x == that.x and this.y == that.y;
@@ -380,7 +390,7 @@ pub fn main() !void {
         }
         // UPDATE
         const now = try std.time.Instant.now();
-        const tps = 30;
+        const tps = 10;
         {
             if (!raylib.IsWindowFocused()) {
                 game.options.isPaused = true;
@@ -451,12 +461,25 @@ pub fn main() !void {
                 const pctClamped = std.math.clamp(pct, 0, 1);
                 const fps = raylib.GetFPS();
                 const isFpsLargerThanTps = fps > tps;
-                const shouldAlwaysInterpolateThisSegment = game.tickState.isNextHeadInBounds or (p == snake.len - 1 and p != 0);
+                var expectedPosition = snake.segments[p + 1];
+                if (snake.segments[p + 1].sub(&snake.segments[p]).magnitude2() > 2) {
+                    const dx = snake.segments[p + 1].sub(&snake.segments[p]).x;
+                    const dy = snake.segments[p + 1].sub(&snake.segments[p]).y;
+                    expectedPosition.x = snake.segments[p].x + -sign(dx);
+                    expectedPosition.y = snake.segments[p].y + -sign(dy);
+                }
+                const shouldAlwaysInterpolateThisSegment = (game.tickState.isNextHeadInBounds or (p == snake.len - 1 and p != 0));
                 const shouldInterpolate = game.options.shouldInterpolate and isFpsLargerThanTps and shouldAlwaysInterpolateThisSegment;
-                const interpolatedPosition: raylib.Vector2 = raylib.Vector2Lerp(segScreen, snake.segments[p + 1].toScreenCoords(SCALE), if (shouldInterpolate) pctClamped else 0);
+                const interpolatedPosition: raylib.Vector2 = raylib.Vector2Lerp(segScreen, expectedPosition.toScreenCoords(SCALE), if (shouldInterpolate) pctClamped else 0);
                 raylib.DrawTextureEx(snakeTexture, interpolatedPosition, 0, snakeTextureScale, color);
             }
             raylib.DrawFPS(game.state.screenSize.x - 100, 0);
         }
     }
+}
+
+fn sign(x: i32) i32 {
+  if (x < 0) return -1;
+  if (x > 0) return 1;
+  return 0;
 }
