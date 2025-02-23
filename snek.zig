@@ -390,7 +390,7 @@ pub fn main() !void {
         }
         // UPDATE
         const now = try std.time.Instant.now();
-        const tps = 10;
+        const tps = 30;
         {
             if (!raylib.IsWindowFocused()) {
                 game.options.isPaused = true;
