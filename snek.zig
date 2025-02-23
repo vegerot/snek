@@ -353,7 +353,7 @@ pub fn main() !void {
     const fruitTextures = try FruitTextures.generateFruits();
     defer fruitTextures.unload();
 
-    raylib.SetTargetFPS(raylib.GetMonitorRefreshRate(raylib.GetCurrentMonitor()));
+    raylib.SetTargetFPS(2 * raylib.GetMonitorRefreshRate(raylib.GetCurrentMonitor()));
 
     const snakeImage = raylib.LoadImageFromMemory(".png", snekPng, snekPng.len);
     std.debug.assert(snakeImage.data != null);
