@@ -355,7 +355,7 @@ pub fn main() !void {
 
     var snakeImage = raylib.LoadImageFromMemory(".png", snekPng, snekPng.len);
     std.debug.assert(snakeImage.data != null);
-    raylib.ImageFlipVertical(&snakeImage);
+    raylib.ImageFlipHorizontal(&snakeImage);
     const snakeTexture = raylib.LoadTextureFromImage(snakeImage);
     raylib.SetWindowIcon(snakeImage);
     std.debug.assert(snakeTexture.id != 0);
@@ -504,21 +504,58 @@ pub fn main() !void {
                 const shouldInterpolate = game.options.shouldInterpolate and isFpsLargerThanTps;
                 const interpolatedPosition: raylib.Vector2 = raylib.Vector2Lerp(segScreen, expectedPosition.toScreenCoords(SCALE), if (shouldInterpolate) pctClamped else 0);
 
-                // FIXME: currently all the rotations are based on the dir of
-                // the head, but of course it should be based on the dir of the
-                // segment
-                const rotation: f32 = switch (game.state.dir) {
-                    .right => 180,
-                    .left => 0,
-                    .up => 90,
-                    .down => 270,
-                };
-                const origin: raylib.Vector2 = switch (game.state.dir) {
-                    .right => .{ .x = SCALE, .y = SCALE },
-                    .left => .{ .x = 0, .y = 0 },
-                    .up => .{ .x = 0, .y = SCALE },
-                    .down => .{ .x = SCALE, .y = 0 },
-                };
+                var rotation: f32 = 0;
+
+                const isHead = p == 0;
+                const isPrevSegmentAcrossWrap = p > 0 and snake.segments[p].sub(&snake.segments[p - 1]).magnitude2() > 2;
+                if (isHead) {
+                    const dir = game.state.dir;
+                    if (dir == .right) {
+                        rotation = 0;
+                    } else if (dir == .down) {
+                        rotation = 90;
+                    } else if (dir == .left) {
+                        rotation = 180;
+                    } else if (dir == .up) {
+                        rotation = 270;
+                    }
+                } else if (isPrevSegmentAcrossWrap) {
+                    const subbed = snake.segments[p - 1].sub(&snake.segments[p]);
+                    const wrapDir = .{ .x = sign(subbed.x), .y = sign(subbed.y) };
+                    if (wrapDir.x == 1 and wrapDir.y == 0) {
+                        rotation = 180;
+                    } else if (wrapDir.x == 0 and wrapDir.y == 1) {
+                        rotation = 270;
+                    } else if (wrapDir.x == -1 and wrapDir.y == 0) {
+                        rotation = 0;
+                    } else if (wrapDir.x == 0 and wrapDir.y == -1) {
+                        rotation = 90;
+                    } else {
+                        std.debug.print("wrapDir: {}\n", .{wrapDir});
+                        unreachable();
+                    }
+                } else {
+                    const prevSeg = &snake.segments[p - 1];
+                    const diff = seg.sub(prevSeg);
+                    if (diff.x == 1) {
+                        rotation = 180;
+                    } else if (diff.x == -1) {
+                        rotation = 0;
+                    } else if (diff.y == 1) {
+                        rotation = 270;
+                    } else if (diff.y == -1) {
+                        rotation = 90;
+                    }
+                }
+                const origin: raylib.Vector2 = if (rotation == 0)
+                    .{ .x = 0, .y = 0 }
+                else if (rotation == 90)
+                    .{ .x = 0, .y = SCALE }
+                else if (rotation == 180)
+                    .{ .x = SCALE, .y = SCALE }
+                else
+                    .{ .x = SCALE, .y = 0 };
+
                 raylib.DrawTexturePro(
                     snakeTexture,
                     .{ .x = 0, .y = 0, .width = @floatFromInt(snakeTexture.width), .height = @floatFromInt(snakeTexture.height) },
