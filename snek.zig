@@ -77,7 +77,7 @@ fn Game(maxSize: u32) type {
             isFullScreen: bool,
             tps: u32,
         },
-        fn init(screen: XY) @This() {
+        fn init(screen: XY, fruitTextures: FruitTextures) @This() {
             var newGame: Game(maxSize) = .{
                 .state = .{
                     .snake = .{
@@ -112,15 +112,11 @@ fn Game(maxSize: u32) type {
                     .loseCnt = 0,
                 },
             };
+            newGame.state.fruitTextureOffset = fruitTextures.next();
             for (newGame.state.snake.segments[0..newGame.state.snake.len], 0..) |*seg, i| {
                 seg.* = .{ .x = @intCast(newGame.state.snake.len - i), .y = 0 };
             }
             return newGame;
-        }
-        fn reset(self: *@This()) void {
-            std.debug.print("\treset!", .{});
-            self.snake.len = 1;
-            self.score = 0;
         }
         fn incrementScore(self: *@This()) void {
             self.setScore(self.state.score + 1);
@@ -366,8 +362,7 @@ pub fn main() !void {
     std.debug.assert(font.texture.id != 0);
 
     // TODO: don't hardcode game size
-    var game = Game(1 << 15).init(initialScreen);
-    game.state.fruitTextureOffset = fruitTextures.next();
+    var game = Game(1 << 15).init(initialScreen, fruitTextures);
 
     var startTime = try std.time.Instant.now();
 
@@ -407,7 +402,7 @@ pub fn main() !void {
 
             if (raylib.IsKeyPressed(raylib.KEY_R)) {
                 std.debug.print("\tdebug: reset\n", .{});
-                game = @TypeOf(game).init(game.state.screenSize);
+                game = @TypeOf(game).init(game.state.screenSize, fruitTextures);
             }
 
             if (raylib.IsKeyPressed(raylib.KEY_G)) {
@@ -469,6 +464,12 @@ pub fn main() !void {
                 0,
                 raylib.WHITE,
             );
+            if (game.options.shouldShowHitbox) {
+                raylib.DrawRectangleRec(
+                    fruitPosRec,
+                    raylib.WHITE,
+                );
+            }
             var score: [3]u8 = undefined;
             const scoreDigits = std.fmt.digits2(game.state.score);
             score[0] = scoreDigits[0];
