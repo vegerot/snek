@@ -66,7 +66,6 @@ fn Game(maxSize: u32) type {
             frameCount: i64,
             nextDir: Dir,
             loseCnt: usize,
-            isNextHeadInBounds: bool,
         },
         options: struct {
             gameSize: struct { x: i32, y: i32 },
@@ -111,7 +110,6 @@ fn Game(maxSize: u32) type {
                     .frameCount = 0,
                     .nextDir = .right,
                     .loseCnt = 0,
-                    .isNextHeadInBounds = true,
                 },
             };
             for (newGame.state.snake.segments[0..newGame.state.snake.len], 0..) |*seg, i| {
@@ -159,27 +157,26 @@ fn Game(maxSize: u32) type {
             };
 
             const head = &snake.segments[0];
-            var maybeNextHead = head.add(&dirV);
-            if (maybeNextHead.x < 0) {
-                maybeNextHead.x += game.options.gameSize.x;
+            var nextHead = head.add(&dirV);
+            if (nextHead.x < 0) {
+                nextHead.x += game.options.gameSize.x;
                 game.tickState.loseCnt = snake.len - 1;
             }
-            if (maybeNextHead.y < 0) {
-                maybeNextHead.y += game.options.gameSize.y;
+            if (nextHead.y < 0) {
+                nextHead.y += game.options.gameSize.y;
                 game.tickState.loseCnt = snake.len - 1;
             }
-            if (maybeNextHead.x >= game.options.gameSize.x) {
-                maybeNextHead.x -= game.options.gameSize.x;
+            if (nextHead.x >= game.options.gameSize.x) {
+                nextHead.x -= game.options.gameSize.x;
                 game.tickState.loseCnt = snake.len - 1;
             }
-            if (maybeNextHead.y >= game.options.gameSize.y) {
-                maybeNextHead.y -= game.options.gameSize.y;
+            if (nextHead.y >= game.options.gameSize.y) {
+                nextHead.y -= game.options.gameSize.y;
                 game.tickState.loseCnt = snake.len - 1;
             }
-            //game.tickState.isNextHeadInBounds = maybeNextHead.x >= 0 and maybeNextHead.x < game.options.gameSize.x and maybeNextHead.y >= 0 and maybeNextHead.y < game.options.gameSize.y;
-            if (snake.isTouchingSelf(maybeNextHead) != 0) {
+            if (snake.isTouchingSelf(nextHead) != 0) {
                 std.debug.print("\t💀 touched yourself\n", .{});
-                game.tickState.loseCnt = snake.isTouchingSelf(maybeNextHead);
+                game.tickState.loseCnt = snake.isTouchingSelf(nextHead);
             }
             if (snake.isTouchingFruit(game.state.fruit)) {
                 game.incrementScore();
@@ -192,7 +189,9 @@ fn Game(maxSize: u32) type {
                 };
                 game.state.fruitTextureOffset = fruitTextures.next();
             }
-            if (game.tickState.isNextHeadInBounds) {
+
+            // update snake segments
+            {
                 var i = snake.len;
                 // start from back of snake and work forward
                 while (i >= 1) {
@@ -203,10 +202,7 @@ fn Game(maxSize: u32) type {
 
                     back.* = front;
                 }
-                head.* = maybeNextHead;
-            } else {
-                // std.debug.print("\t💥 touched wall\n", .{});
-                game.tickState.loseCnt = snake.len - 1;
+                head.* = nextHead;
             }
             if (game.tickState.loseCnt != 0) {
                 if (!game.options.isGodMode and snake.len >= 2 and game.state.score > 0) {
@@ -505,8 +501,7 @@ pub fn main() !void {
                     expectedPosition.x = snake.segments[p].x + interpolateHorizAmt;
                     expectedPosition.y = snake.segments[p].y + interpolateVertAmt;
                 }
-                const shouldAlwaysInterpolateThisSegment = (game.tickState.isNextHeadInBounds or (p == snake.len - 1 and p != 0));
-                const shouldInterpolate = game.options.shouldInterpolate and isFpsLargerThanTps and shouldAlwaysInterpolateThisSegment;
+                const shouldInterpolate = game.options.shouldInterpolate and isFpsLargerThanTps;
                 const interpolatedPosition: raylib.Vector2 = raylib.Vector2Lerp(segScreen, expectedPosition.toScreenCoords(SCALE), if (shouldInterpolate) pctClamped else 0);
 
                 // FIXME: currently all the rotations are based on the dir of
