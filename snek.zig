@@ -448,7 +448,9 @@ pub fn main() !void {
         {
             raylib.BeginDrawing();
             defer raylib.EndDrawing();
+
             const snake = &game.state.snake;
+
             if (game.options.isTransparent) {
                 raylib.ClearBackground(raylib.Color{ .a = 0x10 });
             } else {
@@ -506,6 +508,10 @@ pub fn main() !void {
                 const shouldAlwaysInterpolateThisSegment = (game.tickState.isNextHeadInBounds or (p == snake.len - 1 and p != 0));
                 const shouldInterpolate = game.options.shouldInterpolate and isFpsLargerThanTps and shouldAlwaysInterpolateThisSegment;
                 const interpolatedPosition: raylib.Vector2 = raylib.Vector2Lerp(segScreen, expectedPosition.toScreenCoords(SCALE), if (shouldInterpolate) pctClamped else 0);
+
+                // FIXME: currently all the rotations are based on the dir of
+                // the head, but of course it should be based on the dir of the
+                // segment
                 const rotation: f32 = switch (game.state.dir) {
                     .right => 180,
                     .left => 0,
