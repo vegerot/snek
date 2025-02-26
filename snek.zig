@@ -394,10 +394,19 @@ pub fn main() !void {
 
             if (raylib.IsKeyPressed(raylib.KEY_I)) game.options.shouldInterpolate = !game.options.shouldInterpolate;
 
-            if (raylib.IsKeyPressed(raylib.KEY_PERIOD)) {
+            const isShiftPressed = raylib.IsKeyDown(raylib.KEY_RIGHT_SHIFT) or raylib.IsKeyDown(raylib.KEY_LEFT_SHIFT);
+            if (!isShiftPressed and raylib.IsKeyPressed(raylib.KEY_PERIOD)) {
                 std.debug.print("\tcheat: add 1 point\n", .{});
 
                 game.incrementScore();
+            }
+            if (isShiftPressed and raylib.IsKeyPressed(raylib.KEY_PERIOD)) {
+                std.debug.print("debug: speed up 🏎️\n", .{});
+                game.options.tps += 1;
+            }
+            if (isShiftPressed and raylib.IsKeyPressed(raylib.KEY_COMMA)) {
+                std.debug.print("debug: slow down 🐌\n", .{});
+                game.options.tps -= 1;
             }
 
             if (raylib.IsKeyPressed(raylib.KEY_R)) {
