@@ -53,11 +53,11 @@ fn Game(maxSize: u32) type {
     const game = struct {
         state: struct {
             snake: Snake(maxSize),
-            fruit: XY,
+            food: XY,
             score: usize,
             highScore: usize,
             dir: Dir,
-            fruitTextureOffset: TextureOffset,
+            foodTextureOffset: TextureOffset,
             screenSize: XY,
         },
         /// state that's only needed for this tick or frame
@@ -77,7 +77,7 @@ fn Game(maxSize: u32) type {
             isFullScreen: bool,
             tps: u32,
         },
-        fn init(screen: XY, fruitTextures: FruitTextures) @This() {
+        fn init(screen: XY, foodTextures: FoodTextures) @This() {
             var newGame: Game(maxSize) = .{
                 .state = .{
                     .snake = .{
@@ -85,14 +85,14 @@ fn Game(maxSize: u32) type {
                         .len = 1,
                         .segments = undefined,
                     },
-                    .fruit = XY{
+                    .food = XY{
                         .x = rand.intRangeAtMost(i32, 0, @divFloor(screen.x, SCALE) - 1),
                         .y = rand.intRangeAtMost(i32, 0, @divFloor(screen.y, SCALE) - 1),
                     },
                     .score = 0,
                     .highScore = 0,
                     .dir = .right,
-                    .fruitTextureOffset = .{ .scale = SCALE, .texturePos = undefined },
+                    .foodTextureOffset = .{ .scale = SCALE, .texturePos = undefined },
                     .screenSize = screen,
                 },
                 .options = .{
@@ -112,7 +112,7 @@ fn Game(maxSize: u32) type {
                     .loseCnt = 0,
                 },
             };
-            newGame.state.fruitTextureOffset = fruitTextures.next();
+            newGame.state.foodTextureOffset = foodTextures.next();
             for (newGame.state.snake.segments[0..newGame.state.snake.len], 0..) |*seg, i| {
                 seg.* = .{ .x = @intCast(newGame.state.snake.len - i), .y = 0 };
             }
@@ -138,7 +138,7 @@ fn Game(maxSize: u32) type {
             if (snake.len >= 1) snake.segments[snake.len] = snake.segments[snake.len - 1];
             if (snake.len >= 2) snake.segments[snake.len - 1] = snake.segments[snake.len - 2];
         }
-        fn update(game: *@This(), fruitTextures: FruitTextures) void {
+        fn update(game: *@This(), foodTextures: FoodTextures) void {
             // std.debug.print("\n**FRAME {}\n", .{game.frameCount});
             // defer std.debug.print("---------\n", .{});
             const snake = &game.state.snake;
@@ -174,16 +174,16 @@ fn Game(maxSize: u32) type {
                 std.debug.print("\t💀 touched yourself\n", .{});
                 game.tickState.loseCnt = snake.isTouchingSelf(nextHead);
             }
-            if (snake.isTouchingFruit(game.state.fruit)) {
+            if (snake.isTouchingFood(game.state.food)) {
                 game.incrementScore();
 
                 snake.segments[snake.len - 1] = snake.segments[snake.len - 2];
 
-                game.state.fruit = .{
+                game.state.food = .{
                     .x = rand.intRangeAtMost(i32, 0, game.options.gameSize.x - 1),
                     .y = rand.intRangeAtMost(i32, 0, game.options.gameSize.y - 1),
                 };
-                game.state.fruitTextureOffset = fruitTextures.next();
+                game.state.foodTextureOffset = foodTextures.next();
             }
 
             // update snake segments
@@ -236,7 +236,7 @@ fn Game(maxSize: u32) type {
             }
             self.state.dir = .right;
             self.tickState.nextDir = .right;
-            self.state.fruit = .{
+            self.state.food = .{
                 .x = rand.intRangeAtMost(i32, 0, self.options.gameSize.x - 1),
                 .y = rand.intRangeAtMost(i32, 0, self.options.gameSize.y - 1),
             };
@@ -273,8 +273,8 @@ fn Snake(maxSize: u32) type {
         segments: [maxSize]XY,
         len: u16,
         maxLen: u32,
-        fn isTouchingFruit(self: *const @This(), fruit: XY) bool {
-            return self.segments[0].x == fruit.x and self.segments[0].y == fruit.y;
+        fn isTouchingFood(self: *const @This(), food: XY) bool {
+            return self.segments[0].x == food.x and self.segments[0].y == food.y;
         }
         fn isTouchingSelf(self: *const @This(), nextHead: XY) usize {
             for (self.segments[1..self.len], 0..) |seg, i| {
@@ -295,11 +295,11 @@ const TextureOffset = struct {
     texturePos: raylib.Rectangle,
 };
 
-const FruitTextures = struct {
-    const texturesCount = 10;
+const FoodTextures = struct {
+    const texturesCount = 67;
     spriteSheetTexture: raylib.Texture2D,
     textures: [texturesCount]TextureOffset,
-    fn generateFruits() !FruitTextures {
+    fn generateFoods() !FoodTextures {
         const spritesheetImage = raylib.LoadImageFromMemory(".png", spriteSheetPng, spriteSheetPng.len);
         std.debug.assert(spritesheetImage.data != null);
         const spriteSheetTexture = raylib.LoadTextureFromImage(spritesheetImage);
@@ -308,15 +308,15 @@ const FruitTextures = struct {
         // // height=96px, average width=954px/10=95
         // const textureCount = 10;
         var self: @This() = .{ .spriteSheetTexture = spriteSheetTexture, .textures = undefined };
-        for (&self.textures, 0..) |*fruit, i| {
+        for (&self.textures, 0..) |*food, i| {
             const fi: f32 = @floatFromInt(i);
-            fruit.*.texturePos = .{
+            food.*.texturePos = .{
                 .x = fi * avgWidth,
                 .y = 0,
                 .width = avgWidth,
                 .height = avgHeight,
             };
-            fruit.*.scale = SCALE;
+            food.*.scale = SCALE;
         }
         return self;
     }
@@ -344,8 +344,8 @@ pub fn main() !void {
     const initialScreen: XY = .{ .x = raylib.GetScreenWidth(), .y = raylib.GetScreenHeight() };
     std.debug.print("screen: {}\n", .{initialScreen});
 
-    const fruitTextures = try FruitTextures.generateFruits();
-    defer fruitTextures.unload();
+    const foodTextures = try FoodTextures.generateFoods();
+    defer foodTextures.unload();
 
     raylib.SetTargetFPS(2 * raylib.GetMonitorRefreshRate(raylib.GetCurrentMonitor()));
 
@@ -362,7 +362,7 @@ pub fn main() !void {
     std.debug.assert(font.texture.id != 0);
 
     // TODO: don't hardcode game size
-    var game = Game(1 << 15).init(initialScreen, fruitTextures);
+    var game = Game(1 << 15).init(initialScreen, foodTextures);
     defer std.debug.print("{}\n", .{game});
 
     var startTime = try std.time.Instant.now();
@@ -371,13 +371,15 @@ pub fn main() !void {
         game.tickState.frameCount += 1;
         // input
         {
-            if (raylib.IsKeyPressed(raylib.KEY_DOWN) and game.state.dir != .up) {
+            const isVert = game.state.dir == .up or game.state.dir == .down;
+            const isHoriz = !isVert;
+            if (raylib.IsKeyPressed(raylib.KEY_DOWN) and isHoriz) {
                 game.tickState.nextDir = .down;
-            } else if (raylib.IsKeyPressed(raylib.KEY_UP) and game.state.dir != .down) {
+            } else if (raylib.IsKeyPressed(raylib.KEY_UP) and isHoriz) {
                 game.tickState.nextDir = .up;
-            } else if (raylib.IsKeyPressed(raylib.KEY_LEFT) and game.state.dir != .right) {
+            } else if (raylib.IsKeyPressed(raylib.KEY_LEFT) and isVert) {
                 game.tickState.nextDir = .left;
-            } else if (raylib.IsKeyPressed(raylib.KEY_RIGHT) and game.state.dir != .left) {
+            } else if (raylib.IsKeyPressed(raylib.KEY_RIGHT) and isVert) {
                 game.tickState.nextDir = .right;
             }
 
@@ -412,7 +414,7 @@ pub fn main() !void {
 
             if (raylib.IsKeyPressed(raylib.KEY_R)) {
                 std.debug.print("\tdebug: reset\n", .{});
-                game = @TypeOf(game).init(game.state.screenSize, fruitTextures);
+                game = @TypeOf(game).init(game.state.screenSize, foodTextures);
             }
 
             if (raylib.IsKeyPressed(raylib.KEY_G)) {
@@ -441,7 +443,7 @@ pub fn main() !void {
             const isTimeToRunPhysics = now.since(startTime) > std.time.ns_per_s / game.options.tps;
             const shouldRunPhysics = isTimeToRunPhysics and !dontRunPhysics;
             if (shouldRunPhysics) {
-                game.update(fruitTextures);
+                game.update(foodTextures);
                 startTime = now;
             }
         }
@@ -459,24 +461,24 @@ pub fn main() !void {
             }
             raylib.DrawRectangleLinesEx(raylib.Rectangle{ .x = 0, .y = 0, .width = @floatFromInt(game.state.screenSize.x), .height = @floatFromInt(game.state.screenSize.x) }, 3, raylib.BLACK);
 
-            const fruitPos = game.state.fruit.toScreenCoords(SCALE);
-            const fruitPosRec: raylib.Rectangle = .{
-                .x = fruitPos.x,
-                .y = fruitPos.y,
-                .width = game.state.fruitTextureOffset.scale,
-                .height = game.state.fruitTextureOffset.scale,
+            const foodPos = game.state.food.toScreenCoords(SCALE);
+            const foodPosRec: raylib.Rectangle = .{
+                .x = foodPos.x,
+                .y = foodPos.y,
+                .width = game.state.foodTextureOffset.scale,
+                .height = game.state.foodTextureOffset.scale,
             };
             raylib.DrawTexturePro(
-                fruitTextures.spriteSheetTexture,
-                game.state.fruitTextureOffset.texturePos,
-                fruitPosRec,
+                foodTextures.spriteSheetTexture,
+                game.state.foodTextureOffset.texturePos,
+                foodPosRec,
                 .{},
                 0,
                 raylib.WHITE,
             );
             if (game.options.shouldShowHitbox) {
                 raylib.DrawRectangleRec(
-                    fruitPosRec,
+                    foodPosRec,
                     raylib.WHITE,
                 );
             }
