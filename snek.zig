@@ -363,6 +363,7 @@ pub fn main() !void {
 
     // TODO: don't hardcode game size
     var game = Game(1 << 15).init(initialScreen, fruitTextures);
+    defer std.debug.print("{}\n", .{game});
 
     var startTime = try std.time.Instant.now();
 
