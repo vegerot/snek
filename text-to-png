@@ -11,7 +11,7 @@ def create_png_from_char(char, font_path, font_size, output_path):
     text_bbox = font.getbbox(char)
 
     # Create a new image with a white background
-    image = Image.new('RGBA', (4*text_bbox[2], 4*text_bbox[3])  , 0x000000FF)
+    image = Image.new('RGBA', (8*text_bbox[2], 4*text_bbox[3])  , 0x000000FF)
     draw = Pilmoji(image, emoji_scale_factor=4)
 
     # Draw the text on the image
@@ -37,5 +37,11 @@ def main():
 
     create_png_from_char(args.character, font_path=args.font, font_size=args.fontsize, output_path=args.output)
 
+"""
+I created the textures in this game with
+    ./text-to-png \
+          '🍏🍎🍐🍊🍋🍌🍉🍇🍓🍈🍒🍑🍍🥭🥥🥝🍅🍆🌽🥕🥔🥬🥒🥦🍞🥖🥯🥨🥞🧇🍳🍔🍟🍕🌭🥗🍝🍜🍲🍣🍱🍤🍙🍚🍛🍥🍦🍧🍨🍩🍪🎂🍰🧁🍫🍬🍭🍮🍯🥛☕🍵🍺🍻🥂🍷🥃' \
+            --font=emoji.ttf --output=emoji.png
+"""
 if __name__ == '__main__':
     main()
