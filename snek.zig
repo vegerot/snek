@@ -57,6 +57,7 @@ fn Game(maxSize: u32) type {
             score: usize,
             highScore: usize,
             dir: Dir,
+            foodTextures: FoodTextures,
             foodTextureOffset: TextureOffset,
             screenSize: XY,
         },
@@ -92,6 +93,7 @@ fn Game(maxSize: u32) type {
                     .score = 0,
                     .highScore = 0,
                     .dir = .right,
+                    .foodTextures = foodTextures,
                     .foodTextureOffset = .{ .scale = SCALE, .texturePos = undefined },
                     .screenSize = screen,
                 },
@@ -137,6 +139,65 @@ fn Game(maxSize: u32) type {
             // one at once, which we don't do yet
             if (snake.len >= 1) snake.segments[snake.len] = snake.segments[snake.len - 1];
             if (snake.len >= 2) snake.segments[snake.len - 1] = snake.segments[snake.len - 2];
+        }
+        fn input(game: *@This()) void {
+            const isVert = game.state.dir == .up or game.state.dir == .down;
+            const isHoriz = !isVert;
+            if (raylib.IsKeyPressed(raylib.KEY_DOWN) and isHoriz) {
+                game.tickState.nextDir = .down;
+            } else if (raylib.IsKeyPressed(raylib.KEY_UP) and isHoriz) {
+                game.tickState.nextDir = .up;
+            } else if (raylib.IsKeyPressed(raylib.KEY_LEFT) and isVert) {
+                game.tickState.nextDir = .left;
+            } else if (raylib.IsKeyPressed(raylib.KEY_RIGHT) and isVert) {
+                game.tickState.nextDir = .right;
+            }
+
+            if (raylib.IsKeyPressed(raylib.KEY_F)) {
+                game.toggleFullscreen();
+            }
+
+            if (raylib.IsKeyPressed(raylib.KEY_SPACE) or raylib.IsKeyPressed(raylib.KEY_P)) {
+                game.options.isPaused = !game.options.isPaused;
+            }
+
+            if (raylib.IsKeyPressed(raylib.KEY_R)) {
+                std.debug.print("\tdebug: reset\n", .{});
+                game.* = Game(maxSize).init(game.state.screenSize, game.state.foodTextures);
+            }
+
+            // debug stuff
+
+            game.tickState.shouldAdvanceFrame = raylib.IsKeyPressed(raylib.KEY_N);
+
+            if (raylib.IsKeyPressed(raylib.KEY_I)) game.options.shouldInterpolate = !game.options.shouldInterpolate;
+
+            const isShiftPressed = raylib.IsKeyDown(raylib.KEY_RIGHT_SHIFT) or raylib.IsKeyDown(raylib.KEY_LEFT_SHIFT);
+            if (!isShiftPressed and raylib.IsKeyPressed(raylib.KEY_PERIOD)) {
+                std.debug.print("\tcheat: add 1 point\n", .{});
+
+                game.incrementScore();
+            }
+            if (isShiftPressed and raylib.IsKeyPressed(raylib.KEY_PERIOD)) {
+                std.debug.print("debug: speed up 🏎️\n", .{});
+                game.options.tps += 1;
+            }
+            if (isShiftPressed and raylib.IsKeyPressed(raylib.KEY_COMMA)) {
+                std.debug.print("debug: slow down 🐌\n", .{});
+                game.options.tps -= 1;
+            }
+
+            if (raylib.IsKeyPressed(raylib.KEY_G)) {
+                std.debug.print("\tdebug: godmode\n", .{});
+                game.options.isGodMode = !game.options.isGodMode;
+            }
+
+            if (raylib.IsKeyPressed(raylib.KEY_T)) {
+                game.options.isTransparent = !game.options.isTransparent;
+            }
+            if (raylib.IsKeyPressed(raylib.KEY_H)) {
+                game.options.shouldShowHitbox = !game.options.shouldShowHitbox;
+            }
         }
         fn update(game: *@This(), foodTextures: FoodTextures) void {
             // std.debug.print("\n**FRAME {}\n", .{game.frameCount});
@@ -365,70 +426,14 @@ pub fn main() !void {
     var game = Game(1 << 15).init(initialScreen, foodTextures);
     defer std.debug.print("{}\n", .{game});
 
-    var startTime = try std.time.Instant.now();
+    var timeSinceLastUpdate = try std.time.Instant.now();
 
     while (!raylib.WindowShouldClose()) {
         game.tickState.frameCount += 1;
-        // input
-        {
-            const isVert = game.state.dir == .up or game.state.dir == .down;
-            const isHoriz = !isVert;
-            if (raylib.IsKeyPressed(raylib.KEY_DOWN) and isHoriz) {
-                game.tickState.nextDir = .down;
-            } else if (raylib.IsKeyPressed(raylib.KEY_UP) and isHoriz) {
-                game.tickState.nextDir = .up;
-            } else if (raylib.IsKeyPressed(raylib.KEY_LEFT) and isVert) {
-                game.tickState.nextDir = .left;
-            } else if (raylib.IsKeyPressed(raylib.KEY_RIGHT) and isVert) {
-                game.tickState.nextDir = .right;
-            }
 
-            if (raylib.IsKeyPressed(raylib.KEY_F)) {
-                game.toggleFullscreen();
-            }
+        // INPUT
+        game.input();
 
-            if (raylib.IsKeyPressed(raylib.KEY_SPACE) or raylib.IsKeyPressed(raylib.KEY_P)) {
-                game.options.isPaused = !game.options.isPaused;
-            }
-
-            // debug stuff
-
-            game.tickState.shouldAdvanceFrame = raylib.IsKeyPressed(raylib.KEY_N);
-
-            if (raylib.IsKeyPressed(raylib.KEY_I)) game.options.shouldInterpolate = !game.options.shouldInterpolate;
-
-            const isShiftPressed = raylib.IsKeyDown(raylib.KEY_RIGHT_SHIFT) or raylib.IsKeyDown(raylib.KEY_LEFT_SHIFT);
-            if (!isShiftPressed and raylib.IsKeyPressed(raylib.KEY_PERIOD)) {
-                std.debug.print("\tcheat: add 1 point\n", .{});
-
-                game.incrementScore();
-            }
-            if (isShiftPressed and raylib.IsKeyPressed(raylib.KEY_PERIOD)) {
-                std.debug.print("debug: speed up 🏎️\n", .{});
-                game.options.tps += 1;
-            }
-            if (isShiftPressed and raylib.IsKeyPressed(raylib.KEY_COMMA)) {
-                std.debug.print("debug: slow down 🐌\n", .{});
-                game.options.tps -= 1;
-            }
-
-            if (raylib.IsKeyPressed(raylib.KEY_R)) {
-                std.debug.print("\tdebug: reset\n", .{});
-                game = @TypeOf(game).init(game.state.screenSize, foodTextures);
-            }
-
-            if (raylib.IsKeyPressed(raylib.KEY_G)) {
-                std.debug.print("\tdebug: godmode\n", .{});
-                game.options.isGodMode = !game.options.isGodMode;
-            }
-
-            if (raylib.IsKeyPressed(raylib.KEY_T)) {
-                game.options.isTransparent = !game.options.isTransparent;
-            }
-            if (raylib.IsKeyPressed(raylib.KEY_H)) {
-                game.options.shouldShowHitbox = !game.options.shouldShowHitbox;
-            }
-        }
         // UPDATE
         const now = try std.time.Instant.now();
         {
@@ -440,11 +445,11 @@ pub fn main() !void {
             }
 
             const dontRunPhysics = (game.options.isPaused and !game.tickState.shouldAdvanceFrame);
-            const isTimeToRunPhysics = now.since(startTime) > std.time.ns_per_s / game.options.tps;
+            const isTimeToRunPhysics = now.since(timeSinceLastUpdate) > std.time.ns_per_s / game.options.tps;
             const shouldRunPhysics = isTimeToRunPhysics and !dontRunPhysics;
             if (shouldRunPhysics) {
                 game.update(foodTextures);
-                startTime = now;
+                timeSinceLastUpdate = now;
             }
             // print gamestate while in frame advance mode
             // pro-tip: you can also use this to print the game state whenever
@@ -518,7 +523,7 @@ pub fn main() !void {
                 const isSnakeHead = p == 0;
                 const color = if (isSnakeHead) raylib.WHITE else COLORS[p % COLORS.len];
                 const ticksPerNanoSec = @as(f32, @floatFromInt(game.options.tps)) / std.time.ns_per_s;
-                const nsSinceLastFrame: f32 = @floatFromInt(now.since(startTime));
+                const nsSinceLastFrame: f32 = @floatFromInt(now.since(timeSinceLastUpdate));
                 const pct = 1 - nsSinceLastFrame * ticksPerNanoSec;
                 const pctClamped = std.math.clamp(pct, 0, 1);
                 const fps = raylib.GetFPS();
