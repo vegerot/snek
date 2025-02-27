@@ -465,7 +465,16 @@ pub fn main() !void {
             } else {
                 raylib.ClearBackground(raylib.Color{ .a = 0xF0 });
             }
-            raylib.DrawRectangleLinesEx(raylib.Rectangle{ .x = 0, .y = 0, .width = @floatFromInt(game.state.screenSize.x), .height = @floatFromInt(game.state.screenSize.x) }, 3, raylib.BLACK);
+            raylib.DrawRectangleLinesEx(
+                raylib.Rectangle{
+                    .x = 0,
+                    .y = 0,
+                    .width = @floatFromInt(game.state.screenSize.x),
+                    .height = @floatFromInt(game.state.screenSize.x),
+                },
+                3,
+                raylib.BLACK,
+            );
 
             const foodPos = game.state.food.toScreenCoords(SCALE);
             const foodPosRec: raylib.Rectangle = .{
@@ -508,7 +517,9 @@ pub fn main() !void {
                 const COLORS = makeTransColors();
                 const isSnakeHead = p == 0;
                 const color = if (isSnakeHead) raylib.WHITE else COLORS[p % COLORS.len];
-                const pct = 1 - @as(f32, @floatFromInt(now.since(startTime))) / (@as(f32, std.time.ns_per_s) / @as(f32, @floatFromInt(game.options.tps)));
+                const ticksPerNanoSec = @as(f32, @floatFromInt(game.options.tps)) / std.time.ns_per_s;
+                const nsSinceLastFrame: f32 = @floatFromInt(now.since(startTime));
+                const pct = 1 - nsSinceLastFrame * ticksPerNanoSec;
                 const pctClamped = std.math.clamp(pct, 0, 1);
                 const fps = raylib.GetFPS();
                 const isFpsLargerThanTps = fps > game.options.tps;
