@@ -446,6 +446,12 @@ pub fn main() !void {
                 game.update(foodTextures);
                 startTime = now;
             }
+            // print gamestate while in frame advance mode
+            // pro-tip: you can also use this to print the game state whenever
+            // you want
+            if (game.tickState.shouldAdvanceFrame) {
+                std.debug.print("game: {}\nsegments: {any}\n", .{ game, game.state.snake.segments[0..game.state.snake.len] });
+            }
         }
         // DRAW
         {
@@ -515,7 +521,11 @@ pub fn main() !void {
                     expectedPosition.y = snake.segments[p].y + interpolateVertAmt;
                 }
                 const shouldInterpolate = game.options.shouldInterpolate and isFpsLargerThanTps;
-                const interpolatedPosition: raylib.Vector2 = raylib.Vector2Lerp(segScreen, expectedPosition.toScreenCoords(SCALE), if (shouldInterpolate) pctClamped else 0);
+                const interpolatedPosition: raylib.Vector2 = raylib.Vector2Lerp(
+                    segScreen,
+                    expectedPosition.toScreenCoords(SCALE),
+                    if (shouldInterpolate) pctClamped else 0,
+                );
 
                 var rotation: f32 = 0;
 
