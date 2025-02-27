@@ -445,7 +445,8 @@ pub fn main() !void {
             }
 
             const dontRunPhysics = (game.options.isPaused and !game.tickState.shouldAdvanceFrame);
-            const isTimeToRunPhysics = now.since(timeSinceLastUpdate) > std.time.ns_per_s / game.options.tps;
+            const nanoSecPerTick = std.time.ns_per_s / game.options.tps;
+            const isTimeToRunPhysics = now.since(timeSinceLastUpdate) > nanoSecPerTick;
             const shouldRunPhysics = isTimeToRunPhysics and !dontRunPhysics;
             if (shouldRunPhysics) {
                 game.update(foodTextures);
