@@ -57,7 +57,6 @@ fn Game(maxSize: u32) type {
             score: usize,
             highScore: usize,
             dir: Dir,
-            foodTextures: FoodTextures,
             foodTextureOffset: TextureOffset,
             screenSize: XY,
         },
@@ -67,6 +66,10 @@ fn Game(maxSize: u32) type {
             frameCount: i64,
             nextDir: Dir,
             loseCnt: usize,
+        },
+        drawState: struct {
+            snakeTexture: raylib.Texture,
+            foodTextures: FoodTextures,
         },
         options: struct {
             gameSize: struct { x: i32, y: i32 },
@@ -78,7 +81,7 @@ fn Game(maxSize: u32) type {
             isFullScreen: bool,
             tps: u32,
         },
-        fn init(screen: XY, foodTextures: FoodTextures) @This() {
+        fn init(screen: XY, snakeTexture: raylib.Texture, foodTextures: FoodTextures) @This() {
             var newGame: Game(maxSize) = .{
                 .state = .{
                     .snake = .{
@@ -93,7 +96,6 @@ fn Game(maxSize: u32) type {
                     .score = 0,
                     .highScore = 0,
                     .dir = .right,
-                    .foodTextures = foodTextures,
                     .foodTextureOffset = .{ .scale = SCALE, .texturePos = undefined },
                     .screenSize = screen,
                 },
@@ -112,6 +114,10 @@ fn Game(maxSize: u32) type {
                     .frameCount = 0,
                     .nextDir = .right,
                     .loseCnt = 0,
+                },
+                .drawState = .{
+                    .snakeTexture = snakeTexture,
+                    .foodTextures = foodTextures,
                 },
             };
             newGame.state.foodTextureOffset = foodTextures.next();
@@ -163,7 +169,7 @@ fn Game(maxSize: u32) type {
 
             if (raylib.IsKeyPressed(raylib.KEY_R)) {
                 std.debug.print("\tdebug: reset\n", .{});
-                game.* = Game(maxSize).init(game.state.screenSize, game.state.foodTextures);
+                game.* = Game(maxSize).init(game.state.screenSize, game.drawState.snakeTexture, game.drawState.foodTextures);
             }
 
             // debug stuff
@@ -266,6 +272,162 @@ fn Game(maxSize: u32) type {
                     game.setScore(@intCast(game.tickState.loseCnt - 1));
                 }
             }
+        }
+        fn draw(game: *@This(), timeSinceLastUpdate: u64) void {
+            raylib.BeginDrawing();
+            defer raylib.EndDrawing();
+
+            const snake = &game.state.snake;
+
+            if (game.options.isTransparent) {
+                raylib.ClearBackground(raylib.Color{ .a = 0x10 });
+            } else {
+                raylib.ClearBackground(raylib.Color{ .a = 0xF0 });
+            }
+            raylib.DrawRectangleLinesEx(
+                raylib.Rectangle{
+                    .x = 0,
+                    .y = 0,
+                    .width = @floatFromInt(game.state.screenSize.x),
+                    .height = @floatFromInt(game.state.screenSize.x),
+                },
+                3,
+                raylib.BLACK,
+            );
+
+            const foodPos = game.state.food.toScreenCoords(SCALE);
+            const foodPosRec: raylib.Rectangle = .{
+                .x = foodPos.x,
+                .y = foodPos.y,
+                .width = game.state.foodTextureOffset.scale,
+                .height = game.state.foodTextureOffset.scale,
+            };
+            raylib.DrawTexturePro(
+                game.drawState.foodTextures.spriteSheetTexture,
+                game.state.foodTextureOffset.texturePos,
+                foodPosRec,
+                .{},
+                0,
+                raylib.WHITE,
+            );
+            if (game.options.shouldShowHitbox) {
+                raylib.DrawRectangleRec(
+                    foodPosRec,
+                    raylib.WHITE,
+                );
+            }
+            var score: [3]u8 = undefined;
+            const scoreDigits = std.fmt.digits2(game.state.score);
+            score[0] = scoreDigits[0];
+            score[1] = scoreDigits[1];
+            score[2] = 0; // null-terminate
+            raylib.DrawText(&score, 10, 3, 69, raylib.PURPLE);
+            const shouldDrawHighScore = game.state.score != game.state.highScore;
+            if (shouldDrawHighScore) {
+                var highScore: [3]u8 = undefined;
+                const highScoreDigits = std.fmt.digits2(game.state.highScore);
+                highScore[0] = highScoreDigits[0];
+                highScore[1] = highScoreDigits[1];
+                highScore[2] = 0; // null-terminate
+                raylib.DrawText(&highScore, 10, 75, 33, raylib.BLUE);
+            }
+            for (snake.segments[0..snake.len], 0..) |seg, p| {
+                const segScreen = seg.toScreenCoords(SCALE);
+                const COLORS = makeTransColors();
+                const isSnakeHead = p == 0;
+                const color = if (isSnakeHead) raylib.WHITE else COLORS[p % COLORS.len];
+                const ticksPerNanoSec = @as(f32, @floatFromInt(game.options.tps)) / std.time.ns_per_s;
+                const nsSinceLastFrame: f32 = @floatFromInt(timeSinceLastUpdate);
+                const pct = 1 - nsSinceLastFrame * ticksPerNanoSec;
+                const pctClamped = std.math.clamp(pct, 0, 1);
+                const fps = raylib.GetFPS();
+                const isFpsLargerThanTps = fps > game.options.tps;
+                var expectedPosition = snake.segments[p + 1];
+                const isNextSegmentAcrossWrap = snake.segments[p + 1].sub(&snake.segments[p]).magnitude2() > 2;
+                if (isNextSegmentAcrossWrap) {
+                    const interpolateHorizAmt = -sign(snake.segments[p + 1].sub(&snake.segments[p]).x);
+                    const interpolateVertAmt = -sign(snake.segments[p + 1].sub(&snake.segments[p]).y);
+                    expectedPosition.x = snake.segments[p].x + interpolateHorizAmt;
+                    expectedPosition.y = snake.segments[p].y + interpolateVertAmt;
+                }
+                const shouldInterpolate = game.options.shouldInterpolate and isFpsLargerThanTps;
+                const interpolatedPosition: raylib.Vector2 = raylib.Vector2Lerp(
+                    segScreen,
+                    expectedPosition.toScreenCoords(SCALE),
+                    if (shouldInterpolate) pctClamped else 0,
+                );
+
+                var rotation: f32 = 0;
+
+                const isHead = p == 0;
+                const isPrevSegmentAcrossWrap = p > 0 and snake.segments[p].sub(&snake.segments[p - 1]).magnitude2() > 2;
+                if (isHead) {
+                    const dir = game.state.dir;
+                    if (dir == .right) {
+                        rotation = 0;
+                    } else if (dir == .down) {
+                        rotation = 90;
+                    } else if (dir == .left) {
+                        rotation = 180;
+                    } else if (dir == .up) {
+                        rotation = 270;
+                    }
+                } else if (isPrevSegmentAcrossWrap) {
+                    const subbed = snake.segments[p - 1].sub(&snake.segments[p]);
+                    const wrapDir = .{ .x = sign(subbed.x), .y = sign(subbed.y) };
+                    if (wrapDir.x == 1 and wrapDir.y == 0) {
+                        rotation = 180;
+                    } else if (wrapDir.x == 0 and wrapDir.y == 1) {
+                        rotation = 270;
+                    } else if (wrapDir.x == -1 and wrapDir.y == 0) {
+                        rotation = 0;
+                    } else if (wrapDir.x == 0 and wrapDir.y == -1) {
+                        rotation = 90;
+                    } else {
+                        std.debug.print("wrapDir: {}\n", .{wrapDir});
+                        unreachable();
+                    }
+                } else {
+                    const prevSeg = &snake.segments[p - 1];
+                    const diff = seg.sub(prevSeg);
+                    if (diff.x == 1) {
+                        rotation = 180;
+                    } else if (diff.x == -1) {
+                        rotation = 0;
+                    } else if (diff.y == 1) {
+                        rotation = 270;
+                    } else if (diff.y == -1) {
+                        rotation = 90;
+                    }
+                }
+                const origin: raylib.Vector2 = if (rotation == 0)
+                    .{ .x = 0, .y = 0 }
+                else if (rotation == 90)
+                    .{ .x = 0, .y = SCALE }
+                else if (rotation == 180)
+                    .{ .x = SCALE, .y = SCALE }
+                else
+                    .{ .x = SCALE, .y = 0 };
+
+                const snakeTexture = game.drawState.snakeTexture;
+                raylib.DrawTexturePro(
+                    snakeTexture,
+                    .{ .x = 0, .y = 0, .width = @floatFromInt(snakeTexture.width), .height = @floatFromInt(snakeTexture.height) },
+                    .{ .x = interpolatedPosition.x, .y = interpolatedPosition.y, .height = SCALE, .width = SCALE },
+                    origin,
+                    rotation,
+                    color,
+                );
+                if (game.options.shouldShowHitbox) {
+                    raylib.DrawRectanglePro(
+                        .{ .x = interpolatedPosition.x, .y = interpolatedPosition.y, .height = SCALE, .width = SCALE },
+                        .{ .x = 0, .y = 0 },
+                        0,
+                        color,
+                    );
+                }
+            }
+            raylib.DrawFPS(game.state.screenSize.x - 100, 0);
         }
         fn toggleFullscreen(self: *@This()) void {
             std.debug.print("BEFORE: screenSize: {}, gameSize: {}\n", .{ self.state.screenSize, self.options.gameSize });
@@ -423,10 +585,10 @@ pub fn main() !void {
     std.debug.assert(font.texture.id != 0);
 
     // TODO: don't hardcode game size
-    var game = Game(1 << 15).init(initialScreen, foodTextures);
+    var game = Game(1 << 15).init(initialScreen, snakeTexture, foodTextures);
     defer std.debug.print("{}\n", .{game});
 
-    var timeSinceLastUpdate = try std.time.Instant.now();
+    var timeWhenLastUpdated = try std.time.Instant.now();
 
     while (!raylib.WindowShouldClose()) {
         game.tickState.frameCount += 1;
@@ -446,11 +608,11 @@ pub fn main() !void {
 
             const dontRunPhysics = (game.options.isPaused and !game.tickState.shouldAdvanceFrame);
             const nanoSecPerTick = std.time.ns_per_s / game.options.tps;
-            const isTimeToRunPhysics = now.since(timeSinceLastUpdate) > nanoSecPerTick;
-            const shouldRunPhysics = isTimeToRunPhysics and !dontRunPhysics;
-            if (shouldRunPhysics) {
+            const isTimeToRunPhysics = now.since(timeWhenLastUpdated) > nanoSecPerTick;
+            const willRunPhysics = isTimeToRunPhysics and !dontRunPhysics;
+            if (willRunPhysics) {
                 game.update(foodTextures);
-                timeSinceLastUpdate = now;
+                timeWhenLastUpdated = now;
             }
             // print gamestate while in frame advance mode
             // pro-tip: you can also use this to print the game state whenever
@@ -460,161 +622,8 @@ pub fn main() !void {
             }
         }
         // DRAW
-        {
-            raylib.BeginDrawing();
-            defer raylib.EndDrawing();
-
-            const snake = &game.state.snake;
-
-            if (game.options.isTransparent) {
-                raylib.ClearBackground(raylib.Color{ .a = 0x10 });
-            } else {
-                raylib.ClearBackground(raylib.Color{ .a = 0xF0 });
-            }
-            raylib.DrawRectangleLinesEx(
-                raylib.Rectangle{
-                    .x = 0,
-                    .y = 0,
-                    .width = @floatFromInt(game.state.screenSize.x),
-                    .height = @floatFromInt(game.state.screenSize.x),
-                },
-                3,
-                raylib.BLACK,
-            );
-
-            const foodPos = game.state.food.toScreenCoords(SCALE);
-            const foodPosRec: raylib.Rectangle = .{
-                .x = foodPos.x,
-                .y = foodPos.y,
-                .width = game.state.foodTextureOffset.scale,
-                .height = game.state.foodTextureOffset.scale,
-            };
-            raylib.DrawTexturePro(
-                foodTextures.spriteSheetTexture,
-                game.state.foodTextureOffset.texturePos,
-                foodPosRec,
-                .{},
-                0,
-                raylib.WHITE,
-            );
-            if (game.options.shouldShowHitbox) {
-                raylib.DrawRectangleRec(
-                    foodPosRec,
-                    raylib.WHITE,
-                );
-            }
-            var score: [3]u8 = undefined;
-            const scoreDigits = std.fmt.digits2(game.state.score);
-            score[0] = scoreDigits[0];
-            score[1] = scoreDigits[1];
-            score[2] = 0; // null-terminate
-            raylib.DrawText(&score, 10, 3, 69, raylib.PURPLE);
-            const shouldDrawHighScore = game.state.score != game.state.highScore;
-            if (shouldDrawHighScore) {
-                var highScore: [3]u8 = undefined;
-                const highScoreDigits = std.fmt.digits2(game.state.highScore);
-                highScore[0] = highScoreDigits[0];
-                highScore[1] = highScoreDigits[1];
-                highScore[2] = 0; // null-terminate
-                raylib.DrawText(&highScore, 10, 75, 33, raylib.BLUE);
-            }
-            for (snake.segments[0..snake.len], 0..) |seg, p| {
-                const segScreen = seg.toScreenCoords(SCALE);
-                const COLORS = makeTransColors();
-                const isSnakeHead = p == 0;
-                const color = if (isSnakeHead) raylib.WHITE else COLORS[p % COLORS.len];
-                const ticksPerNanoSec = @as(f32, @floatFromInt(game.options.tps)) / std.time.ns_per_s;
-                const nsSinceLastFrame: f32 = @floatFromInt(now.since(timeSinceLastUpdate));
-                const pct = 1 - nsSinceLastFrame * ticksPerNanoSec;
-                const pctClamped = std.math.clamp(pct, 0, 1);
-                const fps = raylib.GetFPS();
-                const isFpsLargerThanTps = fps > game.options.tps;
-                var expectedPosition = snake.segments[p + 1];
-                const isNextSegmentAcrossWrap = snake.segments[p + 1].sub(&snake.segments[p]).magnitude2() > 2;
-                if (isNextSegmentAcrossWrap) {
-                    const interpolateHorizAmt = -sign(snake.segments[p + 1].sub(&snake.segments[p]).x);
-                    const interpolateVertAmt = -sign(snake.segments[p + 1].sub(&snake.segments[p]).y);
-                    expectedPosition.x = snake.segments[p].x + interpolateHorizAmt;
-                    expectedPosition.y = snake.segments[p].y + interpolateVertAmt;
-                }
-                const shouldInterpolate = game.options.shouldInterpolate and isFpsLargerThanTps;
-                const interpolatedPosition: raylib.Vector2 = raylib.Vector2Lerp(
-                    segScreen,
-                    expectedPosition.toScreenCoords(SCALE),
-                    if (shouldInterpolate) pctClamped else 0,
-                );
-
-                var rotation: f32 = 0;
-
-                const isHead = p == 0;
-                const isPrevSegmentAcrossWrap = p > 0 and snake.segments[p].sub(&snake.segments[p - 1]).magnitude2() > 2;
-                if (isHead) {
-                    const dir = game.state.dir;
-                    if (dir == .right) {
-                        rotation = 0;
-                    } else if (dir == .down) {
-                        rotation = 90;
-                    } else if (dir == .left) {
-                        rotation = 180;
-                    } else if (dir == .up) {
-                        rotation = 270;
-                    }
-                } else if (isPrevSegmentAcrossWrap) {
-                    const subbed = snake.segments[p - 1].sub(&snake.segments[p]);
-                    const wrapDir = .{ .x = sign(subbed.x), .y = sign(subbed.y) };
-                    if (wrapDir.x == 1 and wrapDir.y == 0) {
-                        rotation = 180;
-                    } else if (wrapDir.x == 0 and wrapDir.y == 1) {
-                        rotation = 270;
-                    } else if (wrapDir.x == -1 and wrapDir.y == 0) {
-                        rotation = 0;
-                    } else if (wrapDir.x == 0 and wrapDir.y == -1) {
-                        rotation = 90;
-                    } else {
-                        std.debug.print("wrapDir: {}\n", .{wrapDir});
-                        unreachable();
-                    }
-                } else {
-                    const prevSeg = &snake.segments[p - 1];
-                    const diff = seg.sub(prevSeg);
-                    if (diff.x == 1) {
-                        rotation = 180;
-                    } else if (diff.x == -1) {
-                        rotation = 0;
-                    } else if (diff.y == 1) {
-                        rotation = 270;
-                    } else if (diff.y == -1) {
-                        rotation = 90;
-                    }
-                }
-                const origin: raylib.Vector2 = if (rotation == 0)
-                    .{ .x = 0, .y = 0 }
-                else if (rotation == 90)
-                    .{ .x = 0, .y = SCALE }
-                else if (rotation == 180)
-                    .{ .x = SCALE, .y = SCALE }
-                else
-                    .{ .x = SCALE, .y = 0 };
-
-                raylib.DrawTexturePro(
-                    snakeTexture,
-                    .{ .x = 0, .y = 0, .width = @floatFromInt(snakeTexture.width), .height = @floatFromInt(snakeTexture.height) },
-                    .{ .x = interpolatedPosition.x, .y = interpolatedPosition.y, .height = SCALE, .width = SCALE },
-                    origin,
-                    rotation,
-                    color,
-                );
-                if (game.options.shouldShowHitbox) {
-                    raylib.DrawRectanglePro(
-                        .{ .x = interpolatedPosition.x, .y = interpolatedPosition.y, .height = SCALE, .width = SCALE },
-                        .{ .x = 0, .y = 0 },
-                        0,
-                        color,
-                    );
-                }
-            }
-            raylib.DrawFPS(game.state.screenSize.x - 100, 0);
-        }
+        const timeSinceLastUpdate = now.since(timeWhenLastUpdated);
+        game.draw(timeSinceLastUpdate);
     }
 }
 
