@@ -134,10 +134,11 @@ fn Game(maxSize: u32) type {
             self.state.score = score;
             if (self.state.score > self.state.highScore) {
                 self.state.highScore = self.state.score;
-                const initialTps = 10; // TODO: put this somewhere else
-                const maxTps = 45; // TODO: put this somewhere else
-                self.options.tps = @intCast(std.math.clamp(initialTps + score, initialTps, maxTps));
             }
+            const initialTps = 10; // TODO: put this somewhere else
+            const maxTps = 45; // TODO: put this somewhere else
+            const newTps = @divFloor((initialTps + self.state.highScore) + (initialTps + self.state.score), 2);
+            self.options.tps = @intCast(std.math.clamp(newTps, initialTps, maxTps));
             var snake = &self.state.snake;
             snake.len = @intCast(self.state.score + 1);
 
@@ -204,6 +205,12 @@ fn Game(maxSize: u32) type {
             if (raylib.IsKeyPressed(raylib.KEY_H)) {
                 game.options.shouldShowHitbox = !game.options.shouldShowHitbox;
             }
+
+            if (raylib.IsKeyPressed(raylib.KEY_ONE)) {
+                std.debug.print("debug: 1tps 🐌\n", .{});
+                game.options.tps = 1;
+            }
+
         }
         fn maybeUpdate(game: *@This(), timeSinceLastUpdateNs: u64) bool {
             if (!raylib.IsWindowFocused()) {
