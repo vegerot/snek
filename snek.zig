@@ -205,6 +205,29 @@ fn Game(maxSize: u32) type {
                 game.options.shouldShowHitbox = !game.options.shouldShowHitbox;
             }
         }
+        fn maybeUpdate(game: *@This(), timeSinceLastUpdateNs: u64) bool {
+            if (!raylib.IsWindowFocused()) {
+                game.options.isPaused = true;
+            }
+            if (raylib.IsWindowResized()) {
+                game.resizeGameToWindow();
+            }
+
+            const dontRunPhysics = (game.options.isPaused and !game.tickState.shouldAdvanceFrame);
+            const nanoSecPerTick = std.time.ns_per_s / game.options.tps;
+            const isTimeToRunPhysics = timeSinceLastUpdateNs > nanoSecPerTick;
+            const willRunPhysics = isTimeToRunPhysics and !dontRunPhysics;
+            if (willRunPhysics) {
+                game.update(game.drawState.foodTextures);
+            }
+            // print gamestate while in frame advance mode
+            // pro-tip: you can also use this to print the game state whenever
+            // you want
+            if (game.tickState.shouldAdvanceFrame) {
+                std.debug.print("game: {}\nsegments: {any}\n", .{ game, game.state.snake.segments[0..game.state.snake.len] });
+            }
+            return willRunPhysics;
+        }
         fn update(game: *@This(), foodTextures: FoodTextures) void {
             // std.debug.print("\n**FRAME {}\n", .{game.frameCount});
             // defer std.debug.print("---------\n", .{});
@@ -273,7 +296,7 @@ fn Game(maxSize: u32) type {
                 }
             }
         }
-        fn draw(game: *@This(), timeSinceLastUpdate: u64) void {
+        fn draw(game: *@This(), timeSinceLastUpdateNs: u64) void {
             raylib.BeginDrawing();
             defer raylib.EndDrawing();
 
@@ -337,7 +360,7 @@ fn Game(maxSize: u32) type {
                 const isSnakeHead = p == 0;
                 const color = if (isSnakeHead) raylib.WHITE else COLORS[p % COLORS.len];
                 const ticksPerNanoSec = @as(f32, @floatFromInt(game.options.tps)) / std.time.ns_per_s;
-                const nsSinceLastFrame: f32 = @floatFromInt(timeSinceLastUpdate);
+                const nsSinceLastFrame: f32 = @floatFromInt(timeSinceLastUpdateNs);
                 const pct = 1 - nsSinceLastFrame * ticksPerNanoSec;
                 const pctClamped = std.math.clamp(pct, 0, 1);
                 const fps = raylib.GetFPS();
@@ -598,31 +621,13 @@ pub fn main() !void {
 
         // UPDATE
         const now = try std.time.Instant.now();
-        {
-            if (!raylib.IsWindowFocused()) {
-                game.options.isPaused = true;
-            }
-            if (raylib.IsWindowResized()) {
-                game.resizeGameToWindow();
-            }
-
-            const dontRunPhysics = (game.options.isPaused and !game.tickState.shouldAdvanceFrame);
-            const nanoSecPerTick = std.time.ns_per_s / game.options.tps;
-            const isTimeToRunPhysics = now.since(timeWhenLastUpdated) > nanoSecPerTick;
-            const willRunPhysics = isTimeToRunPhysics and !dontRunPhysics;
-            if (willRunPhysics) {
-                game.update(foodTextures);
-                timeWhenLastUpdated = now;
-            }
-            // print gamestate while in frame advance mode
-            // pro-tip: you can also use this to print the game state whenever
-            // you want
-            if (game.tickState.shouldAdvanceFrame) {
-                std.debug.print("game: {}\nsegments: {any}\n", .{ game, game.state.snake.segments[0..game.state.snake.len] });
-            }
+        var timeSinceLastUpdate = now.since(timeWhenLastUpdated);
+        const didUpdate = game.maybeUpdate(timeSinceLastUpdate);
+        if (didUpdate) {
+            timeWhenLastUpdated = now;
+            timeSinceLastUpdate = 0;
         }
         // DRAW
-        const timeSinceLastUpdate = now.since(timeWhenLastUpdated);
         game.draw(timeSinceLastUpdate);
     }
 }
