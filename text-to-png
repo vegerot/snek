@@ -6,33 +6,30 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 def create_png_from_char(char, font_path, font_size, output_path):
-    # Load the font
-    font = ImageFont.load_default(
-        24
-    )  # ImageFont.truetype(font_path, font_size, encoding='unic')
+    SCALE_FACTOR = 4
+    font_size = 96
+    font = ImageFont.load_default(font_size)
+
     # Calculate the width and height of the text to be drawn
     bbox_left, bbox_top, bbox_right, bbox_bottom  = font.getbbox(char)
 
-    # Create a new image with a white background
-    image = Image.new("RGBA", (8 * bbox_right, 4 * bbox_bottom), 0x000000FF)
-    draw = Pilmoji(image, emoji_scale_factor=4)
+    image = Image.new("RGBA", (2* bbox_right, int(bbox_bottom*1.1)), "#00000000")
+    draw = Pilmoji(image)
 
-    # Draw the text on the image
     draw.text(
         (0, -bbox_bottom),
         char,
-        fill="green",
+        fill="#00000000",
         font=font,
         embedded_color=True,
     )
 
-    # Save the image
     if output_path:
         image.save(output_path)
+        print(f"Image saved to {output_path}")
     else:
         image.show()
 
-    # print(f"Image saved to {output_path}")
 
 
 def main():
