@@ -5,9 +5,7 @@ from pilmoji import Pilmoji
 from PIL import Image, ImageDraw, ImageFont
 
 
-def create_png_from_char(char, font_path, font_size, output_path):
-    SCALE_FACTOR = 4
-    font_size = 96
+def create_png_from_char(char, font_size, output_path):
     font = ImageFont.load_default(font_size)
 
     # Calculate the width and height of the text to be drawn
@@ -37,26 +35,15 @@ def main():
         description="Create a PNG image from a text character."
     )
     parser.add_argument(
-        "character", type=str, help="The character to create a PNG from."
+        "input", type=str, help="The character to create a PNG from."
     )
-    parser.add_argument(
-        "--font", type=str, default="./emoji.ttf", help="Path to the font file."
-    )
-    parser.add_argument("--fontsize", type=int, default=109, help="Font size.")
-    parser.add_argument(
-        "--imageheight",
-        type=int,
-        nargs=3,
-        default=300,
-        help="Height of the output image.",
-    )
+    parser.add_argument("--fontsize", type=int, default=96, help="Font size.")
     parser.add_argument("--output", type=str, help="Output file path.")
 
     args = parser.parse_args()
 
     create_png_from_char(
-        args.character,
-        font_path=args.font,
+        args.input,
         font_size=args.fontsize,
         output_path=args.output,
     )
