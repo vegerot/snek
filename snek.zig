@@ -62,7 +62,8 @@ fn Game(maxSize: u32) type {
         /// state that's only needed for this tick or frame
         tickState: struct {
             shouldAdvanceFrame: bool,
-            frameCount: i64,
+            tickCount: i64,
+            didLogThisTick: bool,
             nextDir: Dir,
             loseCnt: usize,
         },
@@ -110,9 +111,10 @@ fn Game(maxSize: u32) type {
                 },
                 .tickState = .{
                     .shouldAdvanceFrame = false,
-                    .frameCount = 0,
+                    .tickCount = 0,
                     .nextDir = .right,
                     .loseCnt = 0,
+                    .didLogThisTick = false,
                 },
                 .drawState = .{
                     .snakeTexture = snakeTexture,
@@ -127,7 +129,7 @@ fn Game(maxSize: u32) type {
         }
         fn incrementScore(self: *@This()) void {
             self.setScore(self.state.score + 1);
-            std.debug.print("score: {}\n", .{self.state.score});
+            self.log("score: {}\n", .{self.state.score});
         }
         fn setScore(self: *@This(), score: usize) void {
             self.state.score = score;
@@ -168,7 +170,7 @@ fn Game(maxSize: u32) type {
             }
 
             if (raylib.IsKeyPressed(raylib.KEY_R)) {
-                std.debug.print("\tdebug: reset\n", .{});
+                game.log("\tdebug: reset\n", .{});
                 game.* = Game(maxSize).init(game.state.screenSize, game.drawState.snakeTexture, game.drawState.foodTextures);
             }
 
@@ -180,21 +182,21 @@ fn Game(maxSize: u32) type {
 
             const isShiftPressed = raylib.IsKeyDown(raylib.KEY_RIGHT_SHIFT) or raylib.IsKeyDown(raylib.KEY_LEFT_SHIFT);
             if (!isShiftPressed and raylib.IsKeyPressed(raylib.KEY_PERIOD)) {
-                std.debug.print("\tcheat: add 1 point\n", .{});
+                game.log("\tcheat: add 1 point\n", .{});
 
                 game.incrementScore();
             }
             if (isShiftPressed and raylib.IsKeyPressed(raylib.KEY_PERIOD)) {
-                std.debug.print("debug: speed up 🏎️\n", .{});
+                game.log("debug: speed up 🏎️\n", .{});
                 game.options.tps += 1;
             }
             if (isShiftPressed and raylib.IsKeyPressed(raylib.KEY_COMMA)) {
-                std.debug.print("debug: slow down 🐌\n", .{});
+                game.log("debug: slow down 🐌\n", .{});
                 game.options.tps -= 1;
             }
 
             if (raylib.IsKeyPressed(raylib.KEY_G)) {
-                std.debug.print("\tdebug: godmode\n", .{});
+                game.log("\tdebug: godmode\n", .{});
                 game.options.isGodMode = !game.options.isGodMode;
             }
 
@@ -229,15 +231,15 @@ fn Game(maxSize: u32) type {
             // pro-tip: you can also use this to print the game state whenever
             // you want
             if (game.tickState.shouldAdvanceFrame) {
-                std.debug.print("game: {}\nsegments: {any}\n", .{ game, game.state.snake.segments[0..game.state.snake.len] });
+                game.log("game: {}\nsegments: {any}\n", .{ game, game.state.snake.segments[0..game.state.snake.len] });
             }
             return willRunPhysics;
         }
         fn update(game: *@This(), foodTextures: FoodTextures) void {
-            // std.debug.print("\n**FRAME {}\n", .{game.frameCount});
-            // defer std.debug.print("---------\n", .{});
             const snake = &game.state.snake;
             game.tickState.loseCnt = 0;
+            game.tickState.tickCount += 1;
+            game.tickState.didLogThisTick = false;
 
             game.state.dir = game.tickState.nextDir;
             const dirV: XY = switch (game.state.dir) {
@@ -266,7 +268,7 @@ fn Game(maxSize: u32) type {
                 game.tickState.loseCnt = snake.len - 1;
             }
             if (snake.isTouchingSelf(nextHead) != 0) {
-                std.debug.print("\t💀 touched yourself\n", .{});
+                game.log("\t💀 touched yourself\n", .{});
                 game.tickState.loseCnt = snake.isTouchingSelf(nextHead);
             }
             if (snake.isTouchingFood(game.state.food)) {
@@ -412,7 +414,7 @@ fn Game(maxSize: u32) type {
                     } else if (wrapDir.x == 0 and wrapDir.y == -1) {
                         rotation = 90;
                     } else {
-                        std.debug.print("wrapDir: {}\n", .{wrapDir});
+                        game.log("wrapDir: {}\n", .{wrapDir});
                         unreachable();
                     }
                 } else {
@@ -458,8 +460,8 @@ fn Game(maxSize: u32) type {
             raylib.DrawFPS(game.state.screenSize.x - 100, 0);
         }
         fn toggleFullscreen(self: *@This()) void {
-            std.debug.print("BEFORE: screenSize: {}, gameSize: {}\n", .{ self.state.screenSize, self.options.gameSize });
-            defer std.debug.print("AFTER: screenSize: {}, gameSize: {}\n", .{ self.state.screenSize, self.options.gameSize });
+            self.log("BEFORE: screenSize: {}, gameSize: {}\n", .{ self.state.screenSize, self.options.gameSize });
+            defer self.log("AFTER: screenSize: {}, gameSize: {}\n", .{ self.state.screenSize, self.options.gameSize });
             if (self.options.isFullScreen) {
                 raylib.RestoreWindow();
             } else {
@@ -491,6 +493,15 @@ fn Game(maxSize: u32) type {
                 .x = rand.intRangeAtMost(i32, 0, self.options.gameSize.x - 1),
                 .y = rand.intRangeAtMost(i32, 0, self.options.gameSize.y - 1),
             };
+        }
+        fn log(self: *@This(), comptime fmt: []const u8, args: anytype) void {
+            if (!self.tickState.didLogThisTick) {
+                std.debug.print("---------\n", .{});
+                self.tickState.didLogThisTick = true;
+                std.debug.print("\n**TICK {}\n", .{self.tickState.tickCount});
+            }
+            std.debug.print("\t", .{});
+            std.debug.print(fmt, args);
         }
     };
     return game;
@@ -593,7 +604,6 @@ pub fn main() !void {
     std.debug.assert(raylib.IsWindowReady());
 
     const initialScreen: XY = .{ .x = raylib.GetScreenWidth(), .y = raylib.GetScreenHeight() };
-    std.debug.print("screen: {}\n", .{initialScreen});
 
     const foodTextures = try FoodTextures.generateFoods();
     defer foodTextures.unload();
@@ -610,12 +620,11 @@ pub fn main() !void {
 
     // TODO: don't hardcode game size
     var game = Game(1 << 15).init(initialScreen, snakeTexture, foodTextures);
-    defer std.debug.print("{}\n", .{game});
+    defer game.log("{}\n", .{game});
 
     var timeWhenLastUpdated = try std.time.Instant.now();
 
     while (!raylib.WindowShouldClose()) {
-        game.tickState.frameCount += 1;
 
         // INPUT
         game.input();
