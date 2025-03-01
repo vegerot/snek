@@ -457,7 +457,7 @@ fn Game(maxSize: u32) type {
                 );
                 if (game.options.shouldShowHitbox) {
                     raylib.DrawRectanglePro(
-                        .{ .x = interpolatedPosition.x, .y = interpolatedPosition.y, .height = SCALE, .width = SCALE },
+                        .{ .x = segScreen.x, .y = segScreen.y, .width = SCALE, .height = SCALE },
                         .{ .x = 0, .y = 0 },
                         0,
                         color,
