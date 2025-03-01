@@ -8,7 +8,6 @@ const raylib = @cImport({
 
 const spriteSheetPng = @embedFile("./emoji.png");
 const snekPng = @embedFile("./🐍.png");
-const fontTtf = @embedFile("./emoji.ttf");
 
 fn buildEnumFromC(comptime import: anytype, comptime prefix: []const u8) type {
     comptime var enum_fields: [1024]std.builtin.Type.EnumField = undefined;
@@ -210,7 +209,6 @@ fn Game(maxSize: u32) type {
                 std.debug.print("debug: 1tps 🐌\n", .{});
                 game.options.tps = 1;
             }
-
         }
         fn maybeUpdate(game: *@This(), timeSinceLastUpdateNs: u64) bool {
             if (!raylib.IsWindowFocused()) {
@@ -609,10 +607,6 @@ pub fn main() !void {
     raylib.SetWindowIcon(snakeImage);
     std.debug.assert(snakeTexture.id != 0);
     std.debug.assert(snakeTexture.width == snakeTexture.height);
-
-    const font = raylib.LoadFontFromMemory(".ttf", fontTtf, fontTtf.len, 32, 0, 95);
-    defer raylib.UnloadFont(font);
-    std.debug.assert(font.texture.id != 0);
 
     // TODO: don't hardcode game size
     var game = Game(1 << 15).init(initialScreen, snakeTexture, foodTextures);
