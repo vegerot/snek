@@ -325,6 +325,13 @@ fn Game(maxSize: u32) type {
                 raylib.BLACK,
             );
 
+            if (game.options.isPaused) {
+                var textWidth = raylib.MeasureText("PAUSED", 50);
+                raylib.DrawText("PAUSED", @divFloor(game.state.screenSize.x, 2) - @divFloor(textWidth, 2), @divFloor(game.state.screenSize.y, 2), 50, raylib.RED);
+                textWidth = raylib.MeasureText("Press SPACE to unpause", 20);
+                raylib.DrawText("Press SPACE to unpause", @divFloor(game.state.screenSize.x, 2) - @divFloor(textWidth, 2), @divFloor(game.state.screenSize.y, 2) + 50, 20, raylib.RED);
+            }
+
             const foodPos = game.state.food.toScreenCoords(SCALE);
             const foodPosRec: raylib.Rectangle = .{
                 .x = foodPos.x,
