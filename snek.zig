@@ -253,19 +253,19 @@ fn Game(maxSize: u32) type {
             var nextHead = head.add(&dirV);
             if (nextHead.x < 0) {
                 nextHead.x += game.options.gameSize.x;
-                game.tickState.loseCnt = snake.len - 1;
+                game.options.tps -= 1;
             }
             if (nextHead.y < 0) {
                 nextHead.y += game.options.gameSize.y;
-                game.tickState.loseCnt = snake.len - 1;
+                game.options.tps -= 1;
             }
             if (nextHead.x >= game.options.gameSize.x) {
                 nextHead.x -= game.options.gameSize.x;
-                game.tickState.loseCnt = snake.len - 1;
+                game.options.tps -= 1;
             }
             if (nextHead.y >= game.options.gameSize.y) {
                 nextHead.y -= game.options.gameSize.y;
-                game.tickState.loseCnt = snake.len - 1;
+                game.options.tps -= 1;
             }
             if (snake.isTouchingSelf(nextHead) != 0) {
                 game.log("\t💀 touched yourself\n", .{});
