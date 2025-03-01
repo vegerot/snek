@@ -11,15 +11,15 @@ def create_png_from_char(char, font_path, font_size, output_path):
         24
     )  # ImageFont.truetype(font_path, font_size, encoding='unic')
     # Calculate the width and height of the text to be drawn
-    text_bbox = font.getbbox(char)
+    bbox_left, bbox_top, bbox_right, bbox_bottom  = font.getbbox(char)
 
     # Create a new image with a white background
-    image = Image.new("RGBA", (8 * text_bbox[2], 4 * text_bbox[3]), 0x000000FF)
+    image = Image.new("RGBA", (8 * bbox_right, 4 * bbox_bottom), 0x000000FF)
     draw = Pilmoji(image, emoji_scale_factor=4)
 
     # Draw the text on the image
     draw.text(
-        (0, -text_bbox[3]),
+        (0, -bbox_bottom),
         char,
         fill="green",
         font=font,
