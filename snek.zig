@@ -173,19 +173,19 @@ fn Game(maxSize: u32) type {
         }
         fn input(game: *@This()) void {
             var inputDirOffset: u1 = if (game.tickState.inputDir[0] == .none) 0 else 1;
-            if (raylib.IsKeyPressed(raylib.KEY_DOWN)) {
+            if (raylib.IsKeyPressed(raylib.KEY_DOWN) or raylib.IsKeyPressed(raylib.KEY_S)) {
                 game.tickState.inputDir[inputDirOffset] = .down;
                 inputDirOffset = 1;
             }
-            if (raylib.IsKeyPressed(raylib.KEY_UP)) {
+            if (raylib.IsKeyPressed(raylib.KEY_UP) or raylib.IsKeyPressed(raylib.KEY_W)) {
                 game.tickState.inputDir[inputDirOffset] = .up;
                 inputDirOffset = 1;
             }
-            if (raylib.IsKeyPressed(raylib.KEY_LEFT)) {
+            if (raylib.IsKeyPressed(raylib.KEY_LEFT) or raylib.IsKeyPressed(raylib.KEY_A)) {
                 game.tickState.inputDir[inputDirOffset] = .left;
                 inputDirOffset = 1;
             }
-            if (raylib.IsKeyPressed(raylib.KEY_RIGHT)) {
+            if (raylib.IsKeyPressed(raylib.KEY_RIGHT) or raylib.IsKeyPressed(raylib.KEY_D)) {
                 game.tickState.inputDir[inputDirOffset] = .right;
                 inputDirOffset = 1;
             }
