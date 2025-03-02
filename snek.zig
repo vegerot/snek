@@ -138,12 +138,19 @@ fn Game(maxSize: u32) type {
             }
             var snake = &self.state.snake;
             snake.len = @intCast(self.state.score + 1);
-            self.options.tps = self.calculateTpsFromScore();
+            self.setTps(self.calculateTpsFromScore());
 
             // FIXME: this is buggy if we increase the snake len by more than
             // one at once, which we don't do yet
             if (snake.len >= 1) snake.segments[snake.len] = snake.segments[snake.len - 1];
             if (snake.len >= 2) snake.segments[snake.len - 1] = snake.segments[snake.len - 2];
+        }
+        fn setTps(self: *@This(), tps: u32) void {
+            if (tps >= 1) {
+                self.options.tps = tps;
+            } else {
+                self.options.tps = 1;
+            }
         }
         fn calculateTpsFromScore(self: *@This()) u32 {
             const initialTps = 10; // TODO: put this somewhere else
@@ -200,11 +207,11 @@ fn Game(maxSize: u32) type {
             }
             if (isShiftPressed and raylib.IsKeyPressed(raylib.KEY_PERIOD)) {
                 game.log("debug: speed up 🏎️\n", .{});
-                game.options.tps += 1;
+                game.setTps(game.options.tps + 1);
             }
             if (isShiftPressed and raylib.IsKeyPressed(raylib.KEY_COMMA)) {
                 game.log("debug: slow down 🐌\n", .{});
-                game.options.tps -= 1;
+                game.setTps(game.options.tps - 1);
             }
 
             if (raylib.IsKeyPressed(raylib.KEY_G)) {
@@ -221,7 +228,7 @@ fn Game(maxSize: u32) type {
 
             if (raylib.IsKeyPressed(raylib.KEY_ONE)) {
                 std.debug.print("debug: 1tps 🐌\n", .{});
-                game.options.tps = 1;
+                game.setTps(1);
             }
         }
         fn maybeUpdate(game: *@This(), timeSinceLastUpdateNs: u64) bool {
@@ -265,19 +272,19 @@ fn Game(maxSize: u32) type {
             var nextHead = head.add(&dirV);
             if (nextHead.x < 0) {
                 nextHead.x += game.options.gameSize.x;
-                game.options.tps -= 1;
+                game.setTps(game.options.tps - 1);
             }
             if (nextHead.y < 0) {
                 nextHead.y += game.options.gameSize.y;
-                game.options.tps -= 1;
+                game.setTps(game.options.tps - 1);
             }
             if (nextHead.x >= game.options.gameSize.x) {
                 nextHead.x -= game.options.gameSize.x;
-                game.options.tps -= 1;
+                game.setTps(game.options.tps - 1);
             }
             if (nextHead.y >= game.options.gameSize.y) {
                 nextHead.y -= game.options.gameSize.y;
-                game.options.tps -= 1;
+                game.setTps(game.options.tps - 1);
             }
             if (snake.isTouchingSelf(nextHead) != 0) {
                 game.log("\t💀 touched yourself\n", .{});
