@@ -64,7 +64,8 @@ fn Game(maxSize: u32) type {
             shouldAdvanceFrame: bool,
             tickCount: i64,
             didLogThisTick: bool,
-            nextDir: Dir,
+            inputDir: [2]Dir,
+            bufferedDir: Dir,
             loseCnt: usize,
         },
         drawState: struct {
@@ -77,6 +78,7 @@ fn Game(maxSize: u32) type {
             isTransparent: bool,
             isPaused: bool,
             shouldInterpolate: bool,
+            shouldBufferInput: bool,
             shouldShowHitbox: bool,
             isFullScreen: bool,
             tps: u32,
@@ -106,13 +108,15 @@ fn Game(maxSize: u32) type {
                     .isPaused = false,
                     .shouldInterpolate = true,
                     .shouldShowHitbox = false,
+                    .shouldBufferInput = true,
                     .isFullScreen = false,
                     .tps = 10,
                 },
                 .tickState = .{
                     .shouldAdvanceFrame = false,
                     .tickCount = 0,
-                    .nextDir = .right,
+                    .inputDir = .{ .none, .none },
+                    .bufferedDir = .none,
                     .loseCnt = 0,
                     .didLogThisTick = false,
                 },
@@ -168,16 +172,22 @@ fn Game(maxSize: u32) type {
             return newTps;
         }
         fn input(game: *@This()) void {
-            const isVert = game.state.dir == .up or game.state.dir == .down;
-            const isHoriz = !isVert;
-            if (raylib.IsKeyPressed(raylib.KEY_DOWN) and isHoriz) {
-                game.tickState.nextDir = .down;
-            } else if (raylib.IsKeyPressed(raylib.KEY_UP) and isHoriz) {
-                game.tickState.nextDir = .up;
-            } else if (raylib.IsKeyPressed(raylib.KEY_LEFT) and isVert) {
-                game.tickState.nextDir = .left;
-            } else if (raylib.IsKeyPressed(raylib.KEY_RIGHT) and isVert) {
-                game.tickState.nextDir = .right;
+            var inputDirOffset: u1 = if (game.tickState.inputDir[0] == .none) 0 else 1;
+            if (raylib.IsKeyPressed(raylib.KEY_DOWN)) {
+                game.tickState.inputDir[inputDirOffset] = .down;
+                inputDirOffset = 1;
+            }
+            if (raylib.IsKeyPressed(raylib.KEY_UP)) {
+                game.tickState.inputDir[inputDirOffset] = .up;
+                inputDirOffset = 1;
+            }
+            if (raylib.IsKeyPressed(raylib.KEY_LEFT)) {
+                game.tickState.inputDir[inputDirOffset] = .left;
+                inputDirOffset = 1;
+            }
+            if (raylib.IsKeyPressed(raylib.KEY_RIGHT)) {
+                game.tickState.inputDir[inputDirOffset] = .right;
+                inputDirOffset = 1;
             }
 
             if (raylib.IsKeyPressed(raylib.KEY_F)) {
@@ -225,6 +235,9 @@ fn Game(maxSize: u32) type {
             if (raylib.IsKeyPressed(raylib.KEY_H)) {
                 game.options.shouldShowHitbox = !game.options.shouldShowHitbox;
             }
+            if (raylib.IsKeyPressed(raylib.KEY_B)) {
+                game.options.shouldBufferInput = !game.options.shouldBufferInput;
+            }
 
             if (raylib.IsKeyPressed(raylib.KEY_ONE)) {
                 std.debug.print("debug: 1tps 🐌\n", .{});
@@ -259,13 +272,31 @@ fn Game(maxSize: u32) type {
             game.tickState.loseCnt = 0;
             game.tickState.tickCount += 1;
             game.tickState.didLogThisTick = false;
+            defer game.tickState.inputDir = .{ .none, .none };
 
-            game.state.dir = game.tickState.nextDir;
+            const isVert = game.state.dir == .up or game.state.dir == .down;
+
+            const inputDir = game.tickState.inputDir[0];
+            const isInputDirOppositeDir = if (isVert) inputDir == .up or inputDir == .down else inputDir == .left or inputDir == .right;
+            const bufferedDir = game.tickState.bufferedDir;
+            const isBufferedDirOppositeDir = if (isVert) bufferedDir == .up or bufferedDir == .down else bufferedDir == .left or bufferedDir == .right;
+            if (inputDir != .none and !isInputDirOppositeDir) {
+                game.state.dir = inputDir;
+            } else if (bufferedDir != .none and !isBufferedDirOppositeDir) {
+                game.state.dir = bufferedDir;
+                game.tickState.bufferedDir = .none;
+            }
+
+            if (game.tickState.inputDir[1] != .none and game.options.shouldBufferInput) {
+                game.tickState.bufferedDir = game.tickState.inputDir[1];
+            }
+
             const dirV: XY = switch (game.state.dir) {
                 .up => .{ .x = 0, .y = -1 },
                 .down => .{ .x = 0, .y = 1 },
                 .left => .{ .x = -1, .y = 0 },
                 .right => .{ .x = 1, .y = 0 },
+                .none => unreachable(),
             };
 
             const head = &snake.segments[0];
@@ -512,7 +543,7 @@ fn Game(maxSize: u32) type {
                 seg.* = .{ .x = @mod(@as(i32, @intCast(self.state.snake.len - i)), self.options.gameSize.x - 2), .y = @divFloor(@as(i32, @intCast(i)), self.options.gameSize.y - 2) };
             }
             self.state.dir = .right;
-            self.tickState.nextDir = .right;
+            self.tickState.inputDir = .{ .none, .none };
             self.state.food = .{
                 .x = rand.intRangeAtMost(i32, 0, self.options.gameSize.x - 1),
                 .y = rand.intRangeAtMost(i32, 0, self.options.gameSize.y - 1),
@@ -574,7 +605,7 @@ fn Snake(maxSize: u32) type {
     return snake;
 }
 
-const Dir = enum { up, down, left, right };
+const Dir = enum { none, up, down, left, right };
 
 const TextureOffset = struct {
     scale: f32,
