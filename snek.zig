@@ -293,8 +293,6 @@ fn Game(maxSize: u32) type {
             if (snake.isTouchingFood(game.state.food)) {
                 game.incrementScore();
 
-                snake.segments[snake.len - 1] = snake.segments[snake.len - 2];
-
                 game.state.food = .{
                     .x = rand.intRangeAtMost(i32, 0, game.options.gameSize.x - 1),
                     .y = rand.intRangeAtMost(i32, 0, game.options.gameSize.y - 1),
