@@ -651,7 +651,7 @@ fn sign(x: i32) i32 {
     return 0;
 }
 
-const SCALE = 50;
+const SCALE = 150;
 pub fn main() !void {
     raylib.SetConfigFlags(raylib.FLAG_WINDOW_TRANSPARENT | raylib.FLAG_WINDOW_RESIZABLE);
     raylib.InitWindow(1280, 800, "snek");
