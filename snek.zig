@@ -136,17 +136,29 @@ fn Game(maxSize: u32) type {
             if (self.state.score > self.state.highScore) {
                 self.state.highScore = self.state.score;
             }
-            const initialTps = 10; // TODO: put this somewhere else
-            const maxTps = 45; // TODO: put this somewhere else
-            const newTps = @divFloor((initialTps + self.state.highScore) + (initialTps + self.state.score), 2);
-            self.options.tps = @intCast(std.math.clamp(newTps, initialTps, maxTps));
             var snake = &self.state.snake;
             snake.len = @intCast(self.state.score + 1);
+            self.options.tps = self.calculateTpsFromScore();
 
             // FIXME: this is buggy if we increase the snake len by more than
             // one at once, which we don't do yet
             if (snake.len >= 1) snake.segments[snake.len] = snake.segments[snake.len - 1];
             if (snake.len >= 2) snake.segments[snake.len - 1] = snake.segments[snake.len - 2];
+        }
+        fn calculateTpsFromScore(self: *@This()) u32 {
+            const initialTps = 10; // TODO: put this somewhere else
+            const maxTps = 45; // TODO: put this somewhere else
+            var newTps: u32 = 0;
+            const averageOfScoreAndHighScore = @divFloor(self.state.score + self.state.highScore, 2);
+            const scoreForPhase1 = maxTps - initialTps; // 35
+            if (self.state.score <= scoreForPhase1) {
+                const maybeNewTps = initialTps + averageOfScoreAndHighScore;
+                newTps = @intCast(std.math.clamp(maybeNewTps, initialTps, maxTps));
+            } else {
+                newTps = maxTps + @as(u32, @intCast((averageOfScoreAndHighScore + initialTps) - maxTps)) / 4;
+            }
+            // self.log("tps: {}, score: {}, averageOfScoreAndHighScore: {}, highScore: {}\n", .{ newTps, self.state.score, averageOfScoreAndHighScore, self.state.highScore });
+            return newTps;
         }
         fn input(game: *@This()) void {
             const isVert = game.state.dir == .up or game.state.dir == .down;
