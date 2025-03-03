@@ -12,13 +12,12 @@ pub fn build(b: *std.Build) void {
     const check_step = b.step("check", "");
     check_step.dependOn(&exe.step);
 
-    // Define a command to run another build.zig file
     const raylib_build_command = b.addSystemCommand(&.{ "zig", "build" });
     raylib_build_command.setCwd(b.path("raylib"));
     raylib_build_command.addCheck(.{ .expect_term = .{ .Exited = 0 } });
     exe.step.dependOn(&raylib_build_command.step);
 
-    const freetype_build_command = b.addSystemCommand(&.{ "zig", "build" });
+    const freetype_build_command = b.addSystemCommand(&.{ "zig", "build", "-Denable_brotli=false" });
     freetype_build_command.setCwd(b.path("freetype"));
     freetype_build_command.addCheck(.{ .expect_term = .{ .Exited = 0 } });
     exe.step.dependOn(&freetype_build_command.step);

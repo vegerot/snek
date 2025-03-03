@@ -668,17 +668,16 @@ const c = @cImport({
 });
 
 // Function to save the RGBA buffer as a PPM file (for visualization)
-fn save_rgba_to_ppm(filename: [*:0]const u8, buffer: [*]u8, 
-                    width: c_int, height: c_int) void {
+fn save_rgba_to_ppm(filename: [*:0]const u8, buffer: [*]u8, width: c_int, height: c_int) void {
     const fp = c.fopen(filename, "wb");
     if (fp == null) {
         _ = c.printf("Failed to open file for writing: %s\n", filename);
         return;
     }
-    
+
     // Write PPM header
     _ = c.fprintf(fp, "P6\n%d %d\n255\n", width, height);
-    
+
     // Write RGB data (ignore alpha)
     var i: c_int = 0;
     while (i < height) : (i += 1) {
@@ -688,13 +687,13 @@ fn save_rgba_to_ppm(filename: [*:0]const u8, buffer: [*]u8,
             const r = @as(u8, buffer[idx]);
             const g = @as(u8, buffer[idx + 1]);
             const b = @as(u8, buffer[idx + 2]);
-            
+
             _ = c.fputc(r, fp);
             _ = c.fputc(g, fp);
             _ = c.fputc(b, fp);
         }
     }
-    
+
     _ = c.fclose(fp);
     _ = c.printf("Saved output to %s\n", filename);
 }
@@ -704,7 +703,7 @@ pub fn main2() !raylib.Image {
     const font_path = "C:\\Windows\\Fonts\\SEGUIEMJ.TTF";
     const character: u32 = '😊';
     const size_px: c_int = SCALE;
-    
+
     // Initialize FreeType
     var library: c.FT_Library = undefined;
     var erro = c.FT_Init_FreeType(&library);
@@ -712,7 +711,7 @@ pub fn main2() !raylib.Image {
         _ = c.printf("Failed to initialize FreeType: %d\n", erro);
         std.debug.assert(false);
     }
-    
+
     // Load font face
     var face: c.FT_Face = undefined;
     erro = c.FT_New_Face(library, font_path, 0, &face);
@@ -720,14 +719,14 @@ pub fn main2() !raylib.Image {
         _ = c.printf("Failed to load font: %d\n", erro);
         std.debug.assert(false);
     }
-    
+
     // Set font size
     erro = c.FT_Set_Pixel_Sizes(face, 0, size_px);
     if (erro != 0) {
         _ = c.printf("Failed to set font size: %d\n", erro);
         std.debug.assert(false);
     }
-    
+
     // Get glyph index
     const glyph_index = c.FT_Get_Char_Index(face, character);
     if (glyph_index == 0) {
@@ -736,21 +735,21 @@ pub fn main2() !raylib.Image {
         _ = c.FT_Done_FreeType(library);
         std.debug.assert(false);
     }
-    
+
     // Load and render the glyph
     erro = c.FT_Load_Glyph(face, glyph_index, c.FT_LOAD_COLOR);
     if (erro != 0) {
         _ = c.printf("Failed to load glyph: %d\n", erro);
         std.debug.assert(false);
     }
-    
+
     // Render the glyph to a bitmap with anti-aliasing
     erro = c.FT_Render_Glyph(face.*.glyph, c.FT_RENDER_MODE_NORMAL);
     if (erro != 0) {
         _ = c.printf("Failed to render glyph: %d\n", erro);
         std.debug.assert(false);
     }
-    
+
     const bitmap = face.*.glyph.*.bitmap;
 
     // BGRA -> RGBA
@@ -770,7 +769,7 @@ pub fn main2() !raylib.Image {
     return result;
 }
 
-const SCALE = 150;
+const SCALE = 69;
 pub fn main() !void {
     raylib.SetConfigFlags(raylib.FLAG_WINDOW_TRANSPARENT | raylib.FLAG_WINDOW_RESIZABLE);
     raylib.InitWindow(1280, 800, "snek");
