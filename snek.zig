@@ -617,7 +617,7 @@ const TextureOffset = struct {
 };
 
 const FoodTextures = struct {
-    const texturesCount = 67;
+    const texturesCount = 1;
     spriteSheetTexture: raylib.Texture2D,
     textures: [texturesCount]TextureOffset,
     fn generateFoods() !FoodTextures {
@@ -625,8 +625,8 @@ const FoodTextures = struct {
         const spritesheetImage: raylib.Image = try main2();
         std.debug.assert(spritesheetImage.data != null);
         const spriteSheetTexture = raylib.LoadTextureFromImage(spritesheetImage);
-        const avgHeight = 96; //px
-        const avgWidth = 96; // px
+        const avgHeight = SCALE; //px
+        const avgWidth = SCALE; // px
         // // height=96px, average width=954px/10=95
         // const textureCount = 10;
         var self: @This() = .{ .spriteSheetTexture = spriteSheetTexture, .textures = undefined };
@@ -699,8 +699,8 @@ fn save_rgba_to_ppm(filename: [*:0]const u8, buffer: [*]u8,
 pub fn main2() !raylib.Image {
     // Default parameters
     const font_path = "C:\\Windows\\Fonts\\SEGUIEMJ.TTF";
-    const character: u32 = '🐍';
-    const size_px: c_int = 48;
+    const character: u32 = '😊';
+    const size_px: c_int = SCALE;
     
     // Initialize FreeType
     var library: c.FT_Library = undefined;
@@ -749,6 +749,15 @@ pub fn main2() !raylib.Image {
     }
     
     const bitmap = face.*.glyph.*.bitmap;
+
+    // BGRA -> RGBA
+    var i: usize = 0;
+    while (i < bitmap.width * bitmap.rows * 4) : (i += 4) {
+        const r: u8 = bitmap.buffer[i];
+        bitmap.buffer[i] = bitmap.buffer[i + 2];
+        bitmap.buffer[i + 2] = r;
+    }
+
     var result: raylib.Image = undefined;
     result.width = @intCast(bitmap.width);
     result.height = @intCast(bitmap.rows);
