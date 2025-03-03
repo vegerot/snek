@@ -748,42 +748,7 @@ pub fn main2() !raylib.Image {
         std.debug.assert(false);
     }
     
-    // Get bitmap dimensions
     const bitmap = face.*.glyph.*.bitmap;
-    const bitmap_width: c_int = @intCast(bitmap.width);
-    const bitmap_height: c_int = @intCast(bitmap.rows);
-    
-    // Create our output buffer with some padding
-    const buffer_width: c_int = bitmap_width + 10;
-    const buffer_height: c_int = bitmap_height + 10;
-    const rgba_buffer = @as([*]u8, @ptrCast(c.calloc(
-        @as(usize, @intCast(buffer_width * buffer_height * 4)), 
-        @sizeOf(u8)
-    )));
-    
-    // Calculate position with some padding
-    const start_x: c_int = 5;
-    const start_y: c_int = 5;
-
-    // Copy bitmap data to RGBA buffer
-    var y: c_int = 0;
-    while (y < bitmap_height) : (y += 1) {
-        var x: c_int = 0;
-        while (x < bitmap_width) : (x += 1) {
-            // Get alpha value from bitmap
-            const alpha = bitmap.buffer[@intCast(y * bitmap.pitch + x)];
-
-            // Calculate position in RGBA buffer
-            const rgba_pos = @as(usize, @intCast(((start_y + y) * buffer_width + (start_x + x))));
-
-            // Set RGBA values (black text with alpha)
-            rgba_buffer[rgba_pos + 0] = alpha;           // R
-            rgba_buffer[rgba_pos + 1] = alpha;       // G
-            rgba_buffer[rgba_pos + 2] = alpha;       // B
-            rgba_buffer[rgba_pos + 3] = alpha;   // A
-        }
-    }
-
     var result: raylib.Image = undefined;
     result.width = @intCast(bitmap.width);
     result.height = @intCast(bitmap.rows);
