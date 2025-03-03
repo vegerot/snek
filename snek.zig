@@ -735,7 +735,7 @@ pub fn main2() !raylib.Image {
     }
     
     // Load and render the glyph
-    erro = c.FT_Load_Glyph(face, glyph_index, c.FT_LOAD_DEFAULT);
+    erro = c.FT_Load_Glyph(face, glyph_index, c.FT_LOAD_COLOR);
     if (erro != 0) {
         _ = c.printf("Failed to load glyph: %d\n", erro);
         std.debug.assert(false);
@@ -774,10 +774,10 @@ pub fn main2() !raylib.Image {
             const alpha = bitmap.buffer[@intCast(y * bitmap.pitch + x)];
 
             // Calculate position in RGBA buffer
-            const rgba_pos = @as(usize, @intCast(((start_y + y) * buffer_width + (start_x + x)) * 4));
+            const rgba_pos = @as(usize, @intCast(((start_y + y) * buffer_width + (start_x + x))));
 
             // Set RGBA values (black text with alpha)
-            rgba_buffer[rgba_pos] = alpha;           // R
+            rgba_buffer[rgba_pos + 0] = alpha;           // R
             rgba_buffer[rgba_pos + 1] = alpha;       // G
             rgba_buffer[rgba_pos + 2] = alpha;       // B
             rgba_buffer[rgba_pos + 3] = alpha;   // A
@@ -785,10 +785,10 @@ pub fn main2() !raylib.Image {
     }
 
     var result: raylib.Image = undefined;
-    result.width = @intCast(buffer_width);
-    result.height = @intCast(buffer_height);
+    result.width = @intCast(bitmap.width);
+    result.height = @intCast(bitmap.rows);
     result.mipmaps = 1;
-    result.data = rgba_buffer;
+    result.data = bitmap.buffer;
     result.format = raylib.PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
     return result;
 }
