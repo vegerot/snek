@@ -621,7 +621,8 @@ const FoodTextures = struct {
     spriteSheetTexture: raylib.Texture2D,
     textures: [texturesCount]TextureOffset,
     fn generateFoods() !FoodTextures {
-        const spritesheetImage = raylib.LoadImageFromMemory(".png", spriteSheetPng, spriteSheetPng.len);
+        //const spritesheetImage = raylib.LoadImageFromMemory(".png", spriteSheetPng, spriteSheetPng.len);
+        const spritesheetImage: raylib.Image = try main2();
         std.debug.assert(spritesheetImage.data != null);
         const spriteSheetTexture = raylib.LoadTextureFromImage(spritesheetImage);
         const avgHeight = 96; //px
@@ -695,7 +696,7 @@ fn save_rgba_to_ppm(filename: [*:0]const u8, buffer: [*]u8,
     _ = c.printf("Saved output to %s\n", filename);
 }
 
-pub fn main2() !c_int {
+pub fn main2() !raylib.Image {
     // Default parameters
     const font_path = "C:\\Windows\\Fonts\\arial.ttf";
     const character: u8 = 'A';
@@ -706,7 +707,7 @@ pub fn main2() !c_int {
     var erro = c.FT_Init_FreeType(&library);
     if (erro != 0) {
         _ = c.printf("Failed to initialize FreeType: %d\n", erro);
-        return @as(c_int, @intCast(1));
+        std.debug.assert(false);
     }
     
     // Load font face
@@ -714,14 +715,14 @@ pub fn main2() !c_int {
     erro = c.FT_New_Face(library, font_path, 0, &face);
     if (erro != 0) {
         _ = c.printf("Failed to load font: %d\n", erro);
-        return @as(c_int, @intCast(1));
+        std.debug.assert(false);
     }
     
     // Set font size
     erro = c.FT_Set_Pixel_Sizes(face, 0, size_px);
     if (erro != 0) {
         _ = c.printf("Failed to set font size: %d\n", erro);
-        return @as(c_int, @intCast(1));
+        std.debug.assert(false);
     }
     
     // Get glyph index
@@ -730,21 +731,21 @@ pub fn main2() !c_int {
         _ = c.printf("Character not found in font\n");
         _ = c.FT_Done_Face(face);
         _ = c.FT_Done_FreeType(library);
-        return @as(c_int, @intCast(1));
+        std.debug.assert(false);
     }
     
     // Load and render the glyph
     erro = c.FT_Load_Glyph(face, glyph_index, c.FT_LOAD_DEFAULT);
     if (erro != 0) {
         _ = c.printf("Failed to load glyph: %d\n", erro);
-        return @as(c_int, @intCast(1));
+        std.debug.assert(false);
     }
     
     // Render the glyph to a bitmap with anti-aliasing
     erro = c.FT_Render_Glyph(face.*.glyph, c.FT_RENDER_MODE_NORMAL);
     if (erro != 0) {
         _ = c.printf("Failed to render glyph: %d\n", erro);
-        return @as(c_int, @intCast(1));
+        std.debug.assert(false);
     }
     
     // Get bitmap dimensions
@@ -763,7 +764,7 @@ pub fn main2() !c_int {
     // Calculate position with some padding
     const start_x: c_int = 5;
     const start_y: c_int = 5;
-    
+
     // Copy bitmap data to RGBA buffer
     var y: c_int = 0;
     while (y < bitmap_height) : (y += 1) {
@@ -771,10 +772,10 @@ pub fn main2() !c_int {
         while (x < bitmap_width) : (x += 1) {
             // Get alpha value from bitmap
             const alpha = bitmap.buffer[@intCast(y * bitmap.pitch + x)];
-            
+
             // Calculate position in RGBA buffer
             const rgba_pos = @as(usize, @intCast(((start_y + y) * buffer_width + (start_x + x)) * 4));
-            
+
             // Set RGBA values (black text with alpha)
             rgba_buffer[rgba_pos] = alpha;           // R
             rgba_buffer[rgba_pos + 1] = alpha;       // G
@@ -782,33 +783,18 @@ pub fn main2() !c_int {
             rgba_buffer[rgba_pos + 3] = alpha;   // A
         }
     }
-    
-    // Save as a PPM file for visualization
-    var output_filename: [128:0]u8 = undefined;
-    _ = c.sprintf(&output_filename, "glyph_%c_%dpx.ppm", character, size_px);
-    save_rgba_to_ppm(&output_filename, rgba_buffer, buffer_width, buffer_height);
-    
-    // Print glyph metrics
-    _ = c.printf("Glyph metrics for '%c':\n", character);
-    _ = c.printf("  Width: %d pixels\n", bitmap_width);
-    _ = c.printf("  Height: %d pixels\n", bitmap_height);
-    _ = c.printf("  Advance width: %.2f pixels\n", @as(f32, @floatFromInt(face.*.glyph.*.advance.x)) / 64.0);
-    _ = c.printf("  Bearing X: %d pixels\n", face.*.glyph.*.bitmap_left);
-    _ = c.printf("  Bearing Y: %d pixels\n", face.*.glyph.*.bitmap_top);
-    
-    // Cleanup
-    c.free(rgba_buffer);
-    _ = c.FT_Done_Face(face);
-    _ = c.FT_Done_FreeType(library);
-    
-    return @as(c_int, @intCast(0));
+
+    var result: raylib.Image = undefined;
+    result.width = @intCast(buffer_width);
+    result.height = @intCast(buffer_height);
+    result.mipmaps = 1;
+    result.data = rgba_buffer;
+    result.format = raylib.PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
+    return result;
 }
 
 const SCALE = 150;
 pub fn main() !void {
-    _ = try main2();
-    std.debug.assert(false);
-
     raylib.SetConfigFlags(raylib.FLAG_WINDOW_TRANSPARENT | raylib.FLAG_WINDOW_RESIZABLE);
     raylib.InitWindow(1280, 800, "snek");
     defer raylib.CloseWindow();
