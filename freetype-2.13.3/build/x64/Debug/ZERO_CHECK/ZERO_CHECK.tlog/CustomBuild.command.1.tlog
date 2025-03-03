@@ -1,0 +1,10 @@
+^P:\SNEK\FREETYPE-2.13.3\BUILD\CMAKEFILES\DE5CFB2FACF2EF2AB151A66E0C105CAB\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SP:/snek/freetype-2.13.3 -BP:/snek/freetype-2.13.3/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file P:/snek/freetype-2.13.3/build/freetype.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

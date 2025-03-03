@@ -1,0 +1,5 @@
+P:/snek/freetype-2.13.3/build/CMakeFiles/freetype.dir
+P:/snek/freetype-2.13.3/build/CMakeFiles/PACKAGE.dir
+P:/snek/freetype-2.13.3/build/CMakeFiles/INSTALL.dir
+P:/snek/freetype-2.13.3/build/CMakeFiles/ALL_BUILD.dir
+P:/snek/freetype-2.13.3/build/CMakeFiles/ZERO_CHECK.dir

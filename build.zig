@@ -18,6 +18,11 @@ pub fn build(b: *std.Build) void {
     raylib_build_command.addCheck(.{ .expect_term = .{ .Exited = 0 } });
     exe.step.dependOn(&raylib_build_command.step);
 
+    const freetype_build_command = b.addSystemCommand(&.{ "zig", "build" });
+    freetype_build_command.setCwd(b.path("freetype"));
+    freetype_build_command.addCheck(.{ .expect_term = .{ .Exited = 0 } });
+    exe.step.dependOn(&freetype_build_command.step);
+
     exe.linkLibC();
     exe.linkSystemLibrary("m");
 
@@ -33,6 +38,12 @@ pub fn build(b: *std.Build) void {
     exe.addIncludePath(b.path("./raylib/src"));
     exe.addLibraryPath(b.path("./raylib/zig-out/lib/"));
     exe.linkSystemLibrary("raylib");
+
+    exe.addIncludePath(b.path("./freetype/zig-out/include"));
+    exe.addLibraryPath(b.path("./freetype/zig-out/lib/"));
+    exe.linkSystemLibrary("freetype");
+
+    exe.addIncludePath(b.path("./"));
 
     b.installArtifact(exe);
 

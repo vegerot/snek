@@ -6,6 +6,10 @@ const raylib = @cImport({
     @cInclude("raymath.h");
 });
 
+const freetypetest = @cImport({
+    @cInclude("freetype-glyph-render.c");
+});
+
 const spriteSheetPng = @embedFile("./emoji.png");
 const snekPng = @embedFile("./🐍.png");
 
@@ -651,8 +655,160 @@ fn sign(x: i32) i32 {
     return 0;
 }
 
+const c = @cImport({
+    @cInclude("stdio.h");
+    @cInclude("stdlib.h");
+    @cInclude("string.h");
+    @cInclude("ft2build.h");
+    @cInclude("freetype/freetype.h");
+});
+
+// Function to save the RGBA buffer as a PPM file (for visualization)
+fn save_rgba_to_ppm(filename: [*:0]const u8, buffer: [*]u8, 
+                    width: c_int, height: c_int) void {
+    const fp = c.fopen(filename, "wb");
+    if (fp == null) {
+        _ = c.printf("Failed to open file for writing: %s\n", filename);
+        return;
+    }
+    
+    // Write PPM header
+    _ = c.fprintf(fp, "P6\n%d %d\n255\n", width, height);
+    
+    // Write RGB data (ignore alpha)
+    var i: c_int = 0;
+    while (i < height) : (i += 1) {
+        var j: c_int = 0;
+        while (j < width) : (j += 1) {
+            const idx = @as(usize, @intCast((i * width + j) * 4));
+            const r = @as(u8, buffer[idx]);
+            const g = @as(u8, buffer[idx + 1]);
+            const b = @as(u8, buffer[idx + 2]);
+            
+            _ = c.fputc(r, fp);
+            _ = c.fputc(g, fp);
+            _ = c.fputc(b, fp);
+        }
+    }
+    
+    _ = c.fclose(fp);
+    _ = c.printf("Saved output to %s\n", filename);
+}
+
+pub fn main2() !c_int {
+    // Default parameters
+    const font_path = "C:\\Windows\\Fonts\\arial.ttf";
+    const character: u8 = 'A';
+    const size_px: c_int = 48;
+    
+    // Initialize FreeType
+    var library: c.FT_Library = undefined;
+    var erro = c.FT_Init_FreeType(&library);
+    if (erro != 0) {
+        _ = c.printf("Failed to initialize FreeType: %d\n", erro);
+        return @as(c_int, @intCast(1));
+    }
+    
+    // Load font face
+    var face: c.FT_Face = undefined;
+    erro = c.FT_New_Face(library, font_path, 0, &face);
+    if (erro != 0) {
+        _ = c.printf("Failed to load font: %d\n", erro);
+        return @as(c_int, @intCast(1));
+    }
+    
+    // Set font size
+    erro = c.FT_Set_Pixel_Sizes(face, 0, size_px);
+    if (erro != 0) {
+        _ = c.printf("Failed to set font size: %d\n", erro);
+        return @as(c_int, @intCast(1));
+    }
+    
+    // Get glyph index
+    const glyph_index = c.FT_Get_Char_Index(face, character);
+    if (glyph_index == 0) {
+        _ = c.printf("Character not found in font\n");
+        _ = c.FT_Done_Face(face);
+        _ = c.FT_Done_FreeType(library);
+        return @as(c_int, @intCast(1));
+    }
+    
+    // Load and render the glyph
+    erro = c.FT_Load_Glyph(face, glyph_index, c.FT_LOAD_DEFAULT);
+    if (erro != 0) {
+        _ = c.printf("Failed to load glyph: %d\n", erro);
+        return @as(c_int, @intCast(1));
+    }
+    
+    // Render the glyph to a bitmap with anti-aliasing
+    erro = c.FT_Render_Glyph(face.*.glyph, c.FT_RENDER_MODE_NORMAL);
+    if (erro != 0) {
+        _ = c.printf("Failed to render glyph: %d\n", erro);
+        return @as(c_int, @intCast(1));
+    }
+    
+    // Get bitmap dimensions
+    const bitmap = face.*.glyph.*.bitmap;
+    const bitmap_width: c_int = @intCast(bitmap.width);
+    const bitmap_height: c_int = @intCast(bitmap.rows);
+    
+    // Create our output buffer with some padding
+    const buffer_width: c_int = bitmap_width + 10;
+    const buffer_height: c_int = bitmap_height + 10;
+    const rgba_buffer = @as([*]u8, @ptrCast(c.calloc(
+        @as(usize, @intCast(buffer_width * buffer_height * 4)), 
+        @sizeOf(u8)
+    )));
+    
+    // Calculate position with some padding
+    const start_x: c_int = 5;
+    const start_y: c_int = 5;
+    
+    // Copy bitmap data to RGBA buffer
+    var y: c_int = 0;
+    while (y < bitmap_height) : (y += 1) {
+        var x: c_int = 0;
+        while (x < bitmap_width) : (x += 1) {
+            // Get alpha value from bitmap
+            const alpha = bitmap.buffer[@intCast(y * bitmap.pitch + x)];
+            
+            // Calculate position in RGBA buffer
+            const rgba_pos = @as(usize, @intCast(((start_y + y) * buffer_width + (start_x + x)) * 4));
+            
+            // Set RGBA values (black text with alpha)
+            rgba_buffer[rgba_pos] = alpha;           // R
+            rgba_buffer[rgba_pos + 1] = alpha;       // G
+            rgba_buffer[rgba_pos + 2] = alpha;       // B
+            rgba_buffer[rgba_pos + 3] = alpha;   // A
+        }
+    }
+    
+    // Save as a PPM file for visualization
+    var output_filename: [128:0]u8 = undefined;
+    _ = c.sprintf(&output_filename, "glyph_%c_%dpx.ppm", character, size_px);
+    save_rgba_to_ppm(&output_filename, rgba_buffer, buffer_width, buffer_height);
+    
+    // Print glyph metrics
+    _ = c.printf("Glyph metrics for '%c':\n", character);
+    _ = c.printf("  Width: %d pixels\n", bitmap_width);
+    _ = c.printf("  Height: %d pixels\n", bitmap_height);
+    _ = c.printf("  Advance width: %.2f pixels\n", @as(f32, @floatFromInt(face.*.glyph.*.advance.x)) / 64.0);
+    _ = c.printf("  Bearing X: %d pixels\n", face.*.glyph.*.bitmap_left);
+    _ = c.printf("  Bearing Y: %d pixels\n", face.*.glyph.*.bitmap_top);
+    
+    // Cleanup
+    c.free(rgba_buffer);
+    _ = c.FT_Done_Face(face);
+    _ = c.FT_Done_FreeType(library);
+    
+    return @as(c_int, @intCast(0));
+}
+
 const SCALE = 150;
 pub fn main() !void {
+    _ = try main2();
+    std.debug.assert(false);
+
     raylib.SetConfigFlags(raylib.FLAG_WINDOW_TRANSPARENT | raylib.FLAG_WINDOW_RESIZABLE);
     raylib.InitWindow(1280, 800, "snek");
     defer raylib.CloseWindow();
