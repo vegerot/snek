@@ -698,8 +698,8 @@ fn save_rgba_to_ppm(filename: [*:0]const u8, buffer: [*]u8,
 
 pub fn main2() !raylib.Image {
     // Default parameters
-    const font_path = "C:\\Windows\\Fonts\\arial.ttf";
-    const character: u8 = 'A';
+    const font_path = "C:\\Windows\\Fonts\\SEGUIEMJ.TTF";
+    const character: u32 = '🐍';
     const size_px: c_int = 48;
     
     // Initialize FreeType
