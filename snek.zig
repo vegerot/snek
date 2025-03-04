@@ -1,6 +1,8 @@
 const std = @import("std");
 const rand = std.crypto.random;
 
+const builtin = @import("builtin");
+
 const raylib = @cImport({
     @cInclude("raylib.h");
     @cInclude("raymath.h");
@@ -617,6 +619,7 @@ const TextureOffset = struct {
     texturePos: raylib.Rectangle,
 };
 
+// @@@: There's gotta be a better way to do this
 fn FoodTexturesG(texturesCount: usize) type {
     const foodTextures = struct {
         textures: [texturesCount]raylib.Texture2D,
@@ -642,8 +645,9 @@ fn FoodTexturesG(texturesCount: usize) type {
     };
     return foodTextures;
 }
-const foodSymbols: [1]u32 = .{
-    '🍎',
+// @@@: There's gotta be a better way to do this
+const foodSymbols: [67]u32 = .{
+    '🍏', '🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🍈', '🍒', '🍑', '🍍', '🥭', '🥥', '🥝', '🍅', '🍆', '🌽', '🥕', '🥔', '🥬', '🥒', '🥦', '🍞', '🥖', '🥯', '🥨', '🥞', '🧇', '🍳', '🍔', '🍟', '🍕', '🌭', '🥗', '🍝', '🍜', '🍲', '🍣', '🍱', '🍤', '🍙', '🍚', '🍛', '🍥', '🍦', '🍧', '🍨', '🍩', '🍪', '🎂', '🍰', '🧁', '🍫', '🍬', '🍭', '🍮', '🍯', '🥛', '☕', '🍵', '🍺', '🍻', '🥂', '🍷', '🥃',
 };
 const FoodTextures = FoodTexturesG(foodSymbols.len);
 
@@ -696,7 +700,10 @@ fn save_rgba_to_ppm(filename: [*:0]const u8, buffer: [*]u8, width: c_int, height
 
 pub fn charToImage(character: u32) raylib.Image {
     // Default parameters
-    const font_path = "C:\\Windows\\Fonts\\SEGUIEMJ.TTF";
+    const font_path = switch (builtin.os.tag) {
+        .windows => "C:\\Windows\\Fonts\\SEGUIEMJ.TTF",
+        else => unreachable(),
+    };
     const size_px: c_int = SCALE;
 
     // Initialize FreeType
@@ -766,7 +773,7 @@ pub fn charToImage(character: u32) raylib.Image {
     return result;
 }
 
-const SCALE = 69;
+const SCALE = 50;
 pub fn main() !void {
     raylib.SetConfigFlags(raylib.FLAG_WINDOW_TRANSPARENT | raylib.FLAG_WINDOW_RESIZABLE);
     raylib.InitWindow(1280, 800, "snek");
