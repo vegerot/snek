@@ -617,28 +617,35 @@ const TextureOffset = struct {
     texturePos: raylib.Rectangle,
 };
 
-const FoodTextures = struct {
-    const texturesCount = 1;
-    textures: [texturesCount]raylib.Texture2D,
-    fn generateFoods() FoodTextures {
-        var self: FoodTextures = undefined;
-        for (&self.textures) |*food| {
-            const spritesheetImage: raylib.Image = charToImage('😊');
-            std.debug.assert(spritesheetImage.data != null);
-            const spriteSheetTexture = raylib.LoadTextureFromImage(spritesheetImage);
-            std.debug.assert(spriteSheetTexture.id != 0);
-            food.* = spriteSheetTexture;
+fn FoodTexturesG(texturesCount: usize) type {
+    const foodTextures = struct {
+        textures: [texturesCount]raylib.Texture2D,
+        fn init(foodChars: *const [texturesCount]u32) @This() {
+            var self: @This() = undefined;
+            for (&self.textures, foodChars) |*food, foodChar| {
+                std.debug.print("foodChar: {}\n", .{foodChar});
+                const spritesheetImage: raylib.Image = charToImage(foodChar);
+                std.debug.assert(spritesheetImage.data != null);
+                const spriteSheetTexture = raylib.LoadTextureFromImage(spritesheetImage);
+                std.debug.assert(spriteSheetTexture.id != 0);
+                food.* = spriteSheetTexture;
+            }
+            return self;
         }
-        return self;
-    }
-    fn next(self: *const @This()) raylib.Texture2D {
-        return self.textures[rand.intRangeAtMost(u16, 0, texturesCount - 1)];
-    }
-    fn unload(self: *const @This()) void {
-        //raylib.UnloadTexture(self.spriteSheetTexture);
-        _ = self;
-    }
+        fn next(self: *const @This()) raylib.Texture2D {
+            return self.textures[rand.intRangeAtMost(u16, 0, texturesCount - 1)];
+        }
+        fn unload(self: *const @This()) void {
+            //raylib.UnloadTexture(self.spriteSheetTexture);
+            _ = self;
+        }
+    };
+    return foodTextures;
+}
+const foodSymbols: [1]u32 = .{
+    '🍎',
 };
+const FoodTextures = FoodTexturesG(foodSymbols.len);
 
 fn sign(x: i32) i32 {
     if (x < 0) return -1;
@@ -768,7 +775,7 @@ pub fn main() !void {
 
     const initialScreen: XY = .{ .x = raylib.GetScreenWidth(), .y = raylib.GetScreenHeight() };
 
-    const foodTextures = FoodTextures.generateFoods();
+    const foodTextures = FoodTextures.init(&foodSymbols);
     defer foodTextures.unload();
 
     raylib.SetTargetFPS(2 * raylib.GetMonitorRefreshRate(raylib.GetCurrentMonitor()));
