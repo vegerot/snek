@@ -699,6 +699,7 @@ pub fn charToImage(character: u32) raylib.Image {
     // Default parameters
     const font_path = switch (builtin.os.tag) {
         .windows => "C:\\Windows\\Fonts\\SEGUIEMJ.TTF",
+        .macos => "./seguiemj.ttf",
         else => unreachable(),
     };
     const size_px: c_int = SCALE;
