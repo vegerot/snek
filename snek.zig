@@ -158,15 +158,18 @@ fn Game(maxSize: u32) type {
         }
         fn calculateTpsFromScore(self: *@This()) u32 {
             const initialTps = 10; // TODO: put this somewhere else
-            const maxTps = 45; // TODO: put this somewhere else
+            const maxTpsPhase1 = 45; // TODO: put this somewhere else
             var newTps: u32 = 0;
             const averageOfScoreAndHighScore = @divFloor(self.state.score + self.state.highScore, 2);
-            const scoreForPhase1 = maxTps - initialTps; // 35
+            const scoreForPhase1 = maxTpsPhase1 - initialTps; // 35
+            const scoreForPhase2 = 100;
             if (self.state.score <= scoreForPhase1) {
                 const maybeNewTps = initialTps + averageOfScoreAndHighScore;
-                newTps = @intCast(std.math.clamp(maybeNewTps, initialTps, maxTps));
+                newTps = @intCast(std.math.clamp(maybeNewTps, initialTps, maxTpsPhase1));
+            } else if (self.state.score <= scoreForPhase2) {
+                newTps = maxTpsPhase1 + @as(u32, @intCast((averageOfScoreAndHighScore + initialTps) - maxTpsPhase1)) / 4;
             } else {
-                newTps = maxTps + @as(u32, @intCast((averageOfScoreAndHighScore + initialTps) - maxTps)) / 4;
+                newTps = @intCast(averageOfScoreAndHighScore % 100);
             }
             // self.log("tps: {}, score: {}, averageOfScoreAndHighScore: {}, highScore: {}\n", .{ newTps, self.state.score, averageOfScoreAndHighScore, self.state.highScore });
             return newTps;
@@ -402,7 +405,7 @@ fn Game(maxSize: u32) type {
                 );
             }
             var score: [3]u8 = undefined;
-            const scoreDigits = std.fmt.digits2(game.state.score);
+            const scoreDigits = std.fmt.digits2(game.state.score % 100);
             score[0] = scoreDigits[0];
             score[1] = scoreDigits[1];
             score[2] = 0; // null-terminate
@@ -410,7 +413,7 @@ fn Game(maxSize: u32) type {
             const shouldDrawHighScore = game.state.score != game.state.highScore;
             if (shouldDrawHighScore) {
                 var highScore: [3]u8 = undefined;
-                const highScoreDigits = std.fmt.digits2(game.state.highScore);
+                const highScoreDigits = std.fmt.digits2(game.state.highScore % 100);
                 highScore[0] = highScoreDigits[0];
                 highScore[1] = highScoreDigits[1];
                 highScore[2] = 0; // null-terminate
