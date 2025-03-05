@@ -720,7 +720,7 @@ pub fn charToImage(character: u32) raylib.Image {
     var face: FT.FT_Face = undefined;
     erro = FT.FT_New_Face(library, font_path, 0, &face);
     if (erro != 0) {
-        _ = c.printf("Failed to load font: %d\n", erro);
+        _ = c.printf("Failed to load font: %d(%s)\n", erro, FT.FT_Error_String(erro));
         std.debug.assert(false);
     }
     //defer std.debug.assert(FT.FT_Done_Face(face) == 0);
@@ -737,7 +737,7 @@ pub fn charToImage(character: u32) raylib.Image {
     // Set font size
     erro = FT.FT_Set_Pixel_Sizes(face, 0, size_px);
     if (erro != 0) {
-        _ = c.printf("Failed to set font size: %d\n", erro);
+        _ = c.printf("Failed to set font size: %d(%s)\n", erro, FT.FT_Error_String(erro));
         std.debug.assert(false);
     }
 
@@ -751,10 +751,9 @@ pub fn charToImage(character: u32) raylib.Image {
     // Render the glyph to a bitmap with anti-aliasing
     erro = FT.FT_Render_Glyph(face.*.glyph, FT.FT_RENDER_MODE_NORMAL);
     if (erro != 0) {
-        _ = c.printf("Failed to render glyph: %d\n", erro);
+        _ = c.printf("Failed to render glyph: %d(%s)\n", erro, FT.FT_Error_String(erro));
         std.debug.assert(erro == 0);
     }
-
     const bitmap = face.*.glyph.*.bitmap;
 
     // BGRA -> RGBA
