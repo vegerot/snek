@@ -658,10 +658,12 @@ const c = @cImport({
     @cInclude("stdio.h");
     @cInclude("stdlib.h");
     @cInclude("string.h");
-    @cInclude("ft2build.h");
 });
 const FT = @cImport({
     @cInclude("freetype/freetype.h");
+    @cInclude("ft2build.h");
+    @cInclude("freetype/ftmodapi.h");
+    @cInclude("rsvg.c");
 });
 
 // Function to save the RGBA buffer as a PPM file (for visualization)
@@ -699,10 +701,10 @@ pub fn charToImage(character: u32) raylib.Image {
     // Default parameters
     const font_path = switch (builtin.os.tag) {
         .windows => "C:\\Windows\\Fonts\\SEGUIEMJ.TTF",
-        .macos => "./seguiemj.ttf",
+        .macos => "/System/Library/Fonts/Apple Color Emoji.ttc",
         else => unreachable(),
     };
-    const size_px: c_int = SCALE;
+    // const size_px: c_int = SCALE;
 
     // Initialize FreeType
     var library: FT.FT_Library = undefined;
@@ -711,6 +713,12 @@ pub fn charToImage(character: u32) raylib.Image {
         _ = c.printf("Failed to initialize FreeType: %d\n", erro);
         std.debug.assert(false);
     }
+    erro = FT.FT_Property_Set(library, "ot-svg", "svg-hooks", &FT.rsvg_hooks);
+    if (erro != 0) {
+        _ = c.printf("Failed to add svg hooks: %d(%s)\n", erro, FT.FT_Error_String(erro));
+        //std.debug.assert(false);
+    }
+
     //defer std.debug.assert(FT.FT_Done_FreeType(library) == 0);
 
     // Load font face
@@ -719,6 +727,13 @@ pub fn charToImage(character: u32) raylib.Image {
     if (erro != 0) {
         _ = c.printf("Failed to load font: %d(%s)\n", erro, FT.FT_Error_String(erro));
         std.debug.assert(false);
+    }
+
+    var i: usize = 0;
+    while (i < face.*.num_fixed_sizes) {
+        defer i += 1;
+        const size: FT.FT_Bitmap_Size = face.*.available_sizes[i];
+        std.debug.print("Size: {}: width = {}, height = {}, x_ppem = {}, y_ppem = {}\n", .{ i, size.width, size.height, size.x_ppem, size.y_ppem });
     }
     //defer std.debug.assert(FT.FT_Done_Face(face) == 0);
 
@@ -732,7 +747,7 @@ pub fn charToImage(character: u32) raylib.Image {
     }
 
     // Set font size
-    erro = FT.FT_Set_Pixel_Sizes(face, 0, size_px);
+    erro = FT.FT_Set_Pixel_Sizes(face, 0, 52);
     if (erro != 0) {
         _ = c.printf("Failed to set font size: %d(%s)\n", erro, FT.FT_Error_String(erro));
         std.debug.assert(false);
@@ -741,7 +756,7 @@ pub fn charToImage(character: u32) raylib.Image {
     // Load and render the glyph
     erro = FT.FT_Load_Glyph(face, glyph_index, FT.FT_LOAD_COLOR);
     if (erro != 0) {
-        _ = c.printf("Failed to load glyph: %d\n", erro);
+        _ = c.printf("Failed to load glyph: %d(%s)\n", erro, FT.FT_Error_String(erro));
         std.debug.assert(false);
     }
 
@@ -754,7 +769,7 @@ pub fn charToImage(character: u32) raylib.Image {
     const bitmap = face.*.glyph.*.bitmap;
 
     // BGRA -> RGBA
-    var i: usize = 0;
+    i = 0;
     while (i < bitmap.width * bitmap.rows * 4) : (i += 4) {
         const r: u8 = bitmap.buffer[i];
         bitmap.buffer[i] = bitmap.buffer[i + 2];
