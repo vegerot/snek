@@ -666,7 +666,9 @@ const FT = @cImport({
     @cInclude("freetype/freetype.h");
     @cInclude("ft2build.h");
     @cInclude("freetype/ftmodapi.h");
-    @cInclude("rsvg.c");
+    if (builtin.os.tag == .macos) {
+        @cInclude("rsvg.c");
+    }
 });
 
 // Function to save the RGBA buffer as a PPM file (for visualization)
@@ -716,10 +718,12 @@ pub fn charToImage(character: u32) raylib.Image {
         _ = c.printf("Failed to initialize FreeType: %d\n", erro);
         std.debug.assert(false);
     }
-    erro = FT.FT_Property_Set(library, "ot-svg", "svg-hooks", &FT.rsvg_hooks);
-    if (erro != 0) {
-        _ = c.printf("Failed to add svg hooks: %d(%s)\n", erro, FT.FT_Error_String(erro));
-        //std.debug.assert(false);
+    if (builtin.os.tag == .macos) {
+        erro = FT.FT_Property_Set(library, "ot-svg", "svg-hooks", &FT.rsvg_hooks);
+        if (erro != 0) {
+            _ = c.printf("Failed to add svg hooks: %d(%s)\n", erro, FT.FT_Error_String(erro));
+            //std.debug.assert(false);
+        }
     }
 
     //defer std.debug.assert(FT.FT_Done_FreeType(library) == 0);
