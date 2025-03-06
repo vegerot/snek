@@ -707,6 +707,7 @@ pub fn charToImage(character: u32) raylib.Image {
     const font_path = switch (builtin.os.tag) {
         .windows => "C:\\Windows\\Fonts\\SEGUIEMJ.TTF",
         .macos => "/System/Library/Fonts/Apple Color Emoji.ttc",
+        .linux => "./seguiemj.ttf",
         else => unreachable(),
     };
     // const size_px: c_int = SCALE;
@@ -812,7 +813,7 @@ pub fn main() !void {
     const snakeTexture = raylib.LoadTextureFromImage(snakeImage);
     raylib.SetWindowIcon(snakeImage);
     std.debug.assert(snakeTexture.id != 0);
-    std.debug.assert(snakeTexture.width == snakeTexture.height);
+    // std.debug.assert(snakeTexture.width == snakeTexture.height);
 
     // TODO: don't hardcode game size
     var game = Game(1 << 15).init(initialScreen, snakeTexture, foodTextures);

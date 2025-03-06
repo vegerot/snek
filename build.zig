@@ -12,11 +12,6 @@ pub fn build(b: *std.Build) void {
     const check_step = b.step("check", "");
     check_step.dependOn(&exe.step);
 
-    const freetype_build_command = b.addSystemCommand(&.{ "zig", "build", "-Denable_brotli=false" });
-    freetype_build_command.setCwd(b.path("freetype"));
-    freetype_build_command.addCheck(.{ .expect_term = .{ .Exited = 0 } });
-    exe.step.dependOn(&freetype_build_command.step);
-
     exe.linkLibC();
     exe.linkSystemLibrary("m");
 
