@@ -12,6 +12,16 @@ pub fn build(b: *std.Build) void {
     const check_step = b.step("check", "");
     check_step.dependOn(&exe.step);
 
+    linkStuff(b, target, optimize, exe);
+
+    b.installArtifact(exe);
+
+    const game_exe = b.addRunArtifact(exe);
+    const play_step = b.step("play", "");
+    play_step.dependOn(&game_exe.step);
+}
+
+fn linkStuff(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, exe: *std.Build.Step.Compile) void {
     exe.linkLibC();
     exe.linkSystemLibrary("m");
 
@@ -41,10 +51,4 @@ pub fn build(b: *std.Build) void {
     exe.linkLibrary(freetype.artifact("freetype"));
 
     exe.addIncludePath(b.path("./"));
-
-    b.installArtifact(exe);
-
-    const game_exe = b.addRunArtifact(exe);
-    const play_step = b.step("play", "");
-    play_step.dependOn(&game_exe.step);
 }
