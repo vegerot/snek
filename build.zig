@@ -14,6 +14,22 @@ pub fn build(b: *std.Build) void {
 
     linkStuff(b, target, optimize, exe);
 
+    // copy these absolute path font files to the build directory
+    const font_path = switch (target.result.os.tag) {
+        .windows => "C:\\Windows\\Fonts\\SEGUIEMJ.TTF",
+        .macos => "/System/Library/Fonts/Apple Color Emoji.ttc",
+        .linux => "./seguiemj.ttf",
+        else => unreachable(),
+    };
+
+    const cp_step = b.addSystemCommand(&.{"cp"});
+    cp_step.addFileArg(std.Build.LazyPath{ .cwd_relative = font_path });
+    const fontFile = cp_step.addOutputFileArg("./.font.ttfc");
+    std.debug.print("font file: {}\n", .{fontFile});
+    exe.root_module.addAnonymousImport("font", .{
+        .root_source_file = fontFile,
+    });
+
     b.installArtifact(exe);
 
     const game_exe = b.addRunArtifact(exe);
