@@ -39,9 +39,11 @@ pub fn build(b: *std.Build) void {
     });
     exe.linkLibrary(raylib.artifact("raylib"));
 
-    exe.addIncludePath(b.path("./freetype/zig-out/include"));
-    exe.addLibraryPath(b.path("./freetype/zig-out/lib/"));
-    exe.linkSystemLibrary("freetype");
+    const freetype = b.dependency("freetype", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    exe.linkLibrary(freetype.artifact("freetype"));
 
     exe.addIncludePath(b.path("./"));
 

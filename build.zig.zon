@@ -8,5 +8,6 @@
     },
     .dependencies = .{
         .raylib = .{ .path = "./raylib" },
+        .freetype = .{ .path = "./freetype" },
     },
 }
