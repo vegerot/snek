@@ -12,11 +12,6 @@ pub fn build(b: *std.Build) void {
     const check_step = b.step("check", "");
     check_step.dependOn(&exe.step);
 
-    const raylib_build_command = b.addSystemCommand(&.{ "zig", "build" });
-    raylib_build_command.setCwd(b.path("raylib"));
-    raylib_build_command.addCheck(.{ .expect_term = .{ .Exited = 0 } });
-    exe.step.dependOn(&raylib_build_command.step);
-
     const freetype_build_command = b.addSystemCommand(&.{ "zig", "build", "-Denable_brotli=false" });
     freetype_build_command.setCwd(b.path("freetype"));
     freetype_build_command.addCheck(.{ .expect_term = .{ .Exited = 0 } });
@@ -38,9 +33,11 @@ pub fn build(b: *std.Build) void {
         exe.linkSystemLibrary("winmm");
     }
 
-    exe.addIncludePath(b.path("./raylib/src"));
-    exe.addLibraryPath(b.path("./raylib/zig-out/lib/"));
-    exe.linkSystemLibrary("raylib");
+    const raylib = b.dependency("raylib", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    exe.linkLibrary(raylib.artifact("raylib"));
 
     exe.addIncludePath(b.path("./freetype/zig-out/include"));
     exe.addLibraryPath(b.path("./freetype/zig-out/lib/"));
