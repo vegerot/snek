@@ -1,0 +1,12 @@
+.{
+    .name = "snek",
+    .version = "0.0.0",
+    .paths = .{
+        "snek.zig",
+        "build.zig",
+        "build.zig.zon",
+    },
+    .dependencies = .{
+        .raylib = .{ .path = "./raylib" },
+    },
+}

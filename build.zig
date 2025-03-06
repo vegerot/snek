@@ -12,12 +12,6 @@ pub fn build(b: *std.Build) void {
     const check_step = b.step("check", "");
     check_step.dependOn(&exe.step);
 
-    // Define a command to run another build.zig file
-    const raylib_build_command = b.addSystemCommand(&.{ "zig", "build" });
-    raylib_build_command.setCwd(b.path("raylib"));
-    raylib_build_command.addCheck(.{ .expect_term = .{ .Exited = 0 } });
-    exe.step.dependOn(&raylib_build_command.step);
-
     exe.linkLibC();
     exe.linkSystemLibrary("m");
 
@@ -30,9 +24,11 @@ pub fn build(b: *std.Build) void {
         exe.linkSystemLibrary("winmm");
     }
 
-    exe.addIncludePath(b.path("./raylib/src"));
-    exe.addLibraryPath(b.path("./raylib/zig-out/lib/"));
-    exe.linkSystemLibrary("raylib");
+    const raylib = b.dependency("raylib", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    exe.linkLibrary(raylib.artifact("raylib"));
 
     b.installArtifact(exe);
 
