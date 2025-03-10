@@ -82,6 +82,7 @@ fn Game(maxSize: u32) type {
             shouldShowHitbox: bool,
             isFullScreen: bool,
             tps: u32,
+            showFps: bool,
         },
         fn init(screen: XY, snakeTexture: raylib.Texture, foodTextures: FoodTextures) @This() {
             var newGame: Game(maxSize) = .{
@@ -111,6 +112,7 @@ fn Game(maxSize: u32) type {
                     .shouldBufferInput = true,
                     .isFullScreen = false,
                     .tps = 10,
+                    .showFps = false,
                 },
                 .tickState = .{
                     .shouldAdvanceFrame = false,
@@ -240,6 +242,11 @@ fn Game(maxSize: u32) type {
             }
             if (raylib.IsKeyPressed(raylib.KEY_B)) {
                 game.options.shouldBufferInput = !game.options.shouldBufferInput;
+            }
+
+            if (raylib.IsKeyPressed(raylib.KEY_X)) {
+                game.log("\tdebug: show fps\n", .{});
+                game.options.showFps = !game.options.showFps;
             }
 
             if (raylib.IsKeyPressed(raylib.KEY_ONE)) {
@@ -515,7 +522,9 @@ fn Game(maxSize: u32) type {
                     );
                 }
             }
-            raylib.DrawFPS(game.state.screenSize.x - 100, 0);
+            if (game.options.showFps) {
+                raylib.DrawFPS(game.state.screenSize.x - 100, 0);
+            }
         }
         fn toggleFullscreen(self: *@This()) void {
             self.log("BEFORE: screenSize: {}, gameSize: {}\n", .{ self.state.screenSize, self.options.gameSize });
