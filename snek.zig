@@ -377,7 +377,7 @@ fn Game(maxSize: u32) type {
                     .x = 0,
                     .y = 0,
                     .width = @floatFromInt(game.state.screenSize.x),
-                    .height = @floatFromInt(game.state.screenSize.x),
+                    .height = @floatFromInt(game.state.screenSize.y),
                 },
                 3,
                 raylib.BLACK,
