@@ -708,14 +708,7 @@ fn save_rgba_to_ppm(filename: [*:0]const u8, buffer: [*]u8, width: c_int, height
     _ = c.printf("Saved output to %s\n", filename);
 }
 
-const font_path = switch (builtin.os.tag) {
-    .windows => "C:\\Windows\\Fonts\\SEGUIEMJ.TTF",
-    .macos => "/System/Library/Fonts/Apple Color Emoji.ttc",
-    // TODO: make Noto work
-    .linux => "./seguiemj.ttf",
-    else => "./seguiemj.ttf",
-};
-const font = @embedFile(font_path);
+const font = @embedFile("font");
 pub fn charToImage(character: u32) raylib.Image {
     // Default parameters
     // const size_px: c_int = SCALE;
