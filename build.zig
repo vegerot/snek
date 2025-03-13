@@ -68,6 +68,7 @@ fn linkStuff(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
         // work around fucked
         // make sure to run brew install freetype
         exe.addLibraryPath(std.Build.LazyPath{ .cwd_relative = "/opt/homebrew/lib" });
+        exe.addIncludePath(std.Build.LazyPath{ .cwd_relative = "/opt/homebrew/include/freetype2" });
         exe.addIncludePath(b.path("./freetype/zig-out/include"));
         exe.addLibraryPath(b.path("./freetype/zig-out/lib/"));
         exe.linkSystemLibrary("freetype");
