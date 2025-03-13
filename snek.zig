@@ -6,6 +6,10 @@ const raylib = @cImport({
     @cInclude("raymath.h");
 });
 
+const freetypetest = @cImport({
+    @cInclude("freetype-glyph-render.c");
+});
+
 const spriteSheetPng = @embedFile("./emoji.png");
 const snekPng = @embedFile("./🐍.png");
 
@@ -625,15 +629,16 @@ const TextureOffset = struct {
 };
 
 const FoodTextures = struct {
-    const texturesCount = 67;
+    const texturesCount = 1;
     spriteSheetTexture: raylib.Texture2D,
     textures: [texturesCount]TextureOffset,
     fn generateFoods() !FoodTextures {
-        const spritesheetImage = raylib.LoadImageFromMemory(".png", spriteSheetPng, spriteSheetPng.len);
+        //const spritesheetImage = raylib.LoadImageFromMemory(".png", spriteSheetPng, spriteSheetPng.len);
+        const spritesheetImage: raylib.Image = try main2();
         std.debug.assert(spritesheetImage.data != null);
         const spriteSheetTexture = raylib.LoadTextureFromImage(spritesheetImage);
-        const avgHeight = 96; //px
-        const avgWidth = 96; // px
+        const avgHeight = SCALE; //px
+        const avgWidth = SCALE; // px
         // // height=96px, average width=954px/10=95
         // const textureCount = 10;
         var self: @This() = .{ .spriteSheetTexture = spriteSheetTexture, .textures = undefined };
@@ -663,7 +668,118 @@ fn sign(x: i32) i32 {
     return 0;
 }
 
-const SCALE = 50;
+const c = @cImport({
+    @cInclude("stdio.h");
+    @cInclude("stdlib.h");
+    @cInclude("string.h");
+    @cInclude("ft2build.h");
+    @cInclude("freetype/freetype.h");
+});
+
+// Function to save the RGBA buffer as a PPM file (for visualization)
+fn save_rgba_to_ppm(filename: [*:0]const u8, buffer: [*]u8, 
+                    width: c_int, height: c_int) void {
+    const fp = c.fopen(filename, "wb");
+    if (fp == null) {
+        _ = c.printf("Failed to open file for writing: %s\n", filename);
+        return;
+    }
+    
+    // Write PPM header
+    _ = c.fprintf(fp, "P6\n%d %d\n255\n", width, height);
+    
+    // Write RGB data (ignore alpha)
+    var i: c_int = 0;
+    while (i < height) : (i += 1) {
+        var j: c_int = 0;
+        while (j < width) : (j += 1) {
+            const idx = @as(usize, @intCast((i * width + j) * 4));
+            const r = @as(u8, buffer[idx]);
+            const g = @as(u8, buffer[idx + 1]);
+            const b = @as(u8, buffer[idx + 2]);
+            
+            _ = c.fputc(r, fp);
+            _ = c.fputc(g, fp);
+            _ = c.fputc(b, fp);
+        }
+    }
+    
+    _ = c.fclose(fp);
+    _ = c.printf("Saved output to %s\n", filename);
+}
+
+pub fn main2() !raylib.Image {
+    // Default parameters
+    const font_path = "C:\\Windows\\Fonts\\SEGUIEMJ.TTF";
+    const character: u32 = '😊';
+    const size_px: c_int = SCALE;
+    
+    // Initialize FreeType
+    var library: c.FT_Library = undefined;
+    var erro = c.FT_Init_FreeType(&library);
+    if (erro != 0) {
+        _ = c.printf("Failed to initialize FreeType: %d\n", erro);
+        std.debug.assert(false);
+    }
+    
+    // Load font face
+    var face: c.FT_Face = undefined;
+    erro = c.FT_New_Face(library, font_path, 0, &face);
+    if (erro != 0) {
+        _ = c.printf("Failed to load font: %d\n", erro);
+        std.debug.assert(false);
+    }
+    
+    // Set font size
+    erro = c.FT_Set_Pixel_Sizes(face, 0, size_px);
+    if (erro != 0) {
+        _ = c.printf("Failed to set font size: %d\n", erro);
+        std.debug.assert(false);
+    }
+    
+    // Get glyph index
+    const glyph_index = c.FT_Get_Char_Index(face, character);
+    if (glyph_index == 0) {
+        _ = c.printf("Character not found in font\n");
+        _ = c.FT_Done_Face(face);
+        _ = c.FT_Done_FreeType(library);
+        std.debug.assert(false);
+    }
+    
+    // Load and render the glyph
+    erro = c.FT_Load_Glyph(face, glyph_index, c.FT_LOAD_COLOR);
+    if (erro != 0) {
+        _ = c.printf("Failed to load glyph: %d\n", erro);
+        std.debug.assert(false);
+    }
+    
+    // Render the glyph to a bitmap with anti-aliasing
+    erro = c.FT_Render_Glyph(face.*.glyph, c.FT_RENDER_MODE_NORMAL);
+    if (erro != 0) {
+        _ = c.printf("Failed to render glyph: %d\n", erro);
+        std.debug.assert(false);
+    }
+    
+    const bitmap = face.*.glyph.*.bitmap;
+
+    // BGRA -> RGBA
+    var i: usize = 0;
+    while (i < bitmap.width * bitmap.rows * 4) : (i += 4) {
+        const r: u8 = bitmap.buffer[i];
+        bitmap.buffer[i] = bitmap.buffer[i + 2];
+        bitmap.buffer[i + 2] = r;
+    }
+
+    var result: raylib.Image = undefined;
+    result.width = @intCast(bitmap.width);
+    result.height = @intCast(bitmap.rows);
+    result.mipmaps = 1;
+    result.data = bitmap.buffer;
+    result.format = raylib.PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
+    return result;
+}
+
+const SCALE = 150;
 pub fn main() !void {
     raylib.SetConfigFlags(raylib.FLAG_WINDOW_TRANSPARENT | raylib.FLAG_WINDOW_RESIZABLE);
     raylib.InitWindow(1280, 800, "snek");
