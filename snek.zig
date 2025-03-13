@@ -12,9 +12,6 @@ const freetypetest = @cImport({
     @cInclude("freetype-glyph-render.c");
 });
 
-const spriteSheetPng = @embedFile("./emoji.png");
-const snekPng = @embedFile("./🐍.png");
-
 fn buildEnumFromC(comptime import: anytype, comptime prefix: []const u8) type {
     comptime var enum_fields: [1024]std.builtin.Type.EnumField = undefined;
     comptime var count = 0;
@@ -711,14 +708,16 @@ fn save_rgba_to_ppm(filename: [*:0]const u8, buffer: [*]u8, width: c_int, height
     _ = c.printf("Saved output to %s\n", filename);
 }
 
+const font_path = switch (builtin.os.tag) {
+    .windows => "C:\\Windows\\Fonts\\SEGUIEMJ.TTF",
+    .macos => "/System/Library/Fonts/Apple Color Emoji.ttc",
+    // TODO: make Noto work
+    .linux => "./seguiemj.ttf",
+    else => "./seguiemj.ttf",
+};
+const font = @embedFile(font_path);
 pub fn charToImage(character: u32) raylib.Image {
     // Default parameters
-    const font_path = switch (builtin.os.tag) {
-        .windows => "C:\\Windows\\Fonts\\SEGUIEMJ.TTF",
-        .macos => "/System/Library/Fonts/Apple Color Emoji.ttc",
-        .linux => "./seguiemj.ttf",
-        else => unreachable(),
-    };
     // const size_px: c_int = SCALE;
 
     // Initialize FreeType
@@ -736,11 +735,16 @@ pub fn charToImage(character: u32) raylib.Image {
         }
     }
 
+    // idea: return a struct with a cleanup method that calls FT_Done_Face and FT_Done_FreeType
     //defer std.debug.assert(FT.FT_Done_FreeType(library) == 0);
 
     // Load font face
     var face: FT.FT_Face = undefined;
-    erro = FT.FT_New_Face(library, font_path, 0, &face);
+    erro = FT.FT_Open_Face(library, &.{
+        .flags = FT.FT_OPEN_MEMORY,
+        .memory_base = font.ptr,
+        .memory_size = font.len,
+    }, 0, &face);
     if (erro != 0) {
         _ = c.printf("Failed to load font: %d(%s)\n", erro, FT.FT_Error_String(erro));
         std.debug.assert(false);
@@ -822,6 +826,7 @@ pub fn main() !void {
     const snakeTexture = raylib.LoadTextureFromImage(snakeImage);
     raylib.SetWindowIcon(snakeImage);
     std.debug.assert(snakeTexture.id != 0);
+    std.debug.print("snakeTexture: {}\n", .{snakeTexture});
     // std.debug.assert(snakeTexture.width == snakeTexture.height);
 
     // TODO: don't hardcode game size
