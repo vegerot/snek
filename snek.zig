@@ -1,6 +1,8 @@
 const std = @import("std");
 const rand = std.crypto.random;
 
+const builtin = @import("builtin");
+
 const raylib = @cImport({
     @cInclude("raylib.h");
     @cInclude("raymath.h");
@@ -60,7 +62,7 @@ fn Game(maxSize: u32) type {
             score: usize,
             highScore: usize,
             dir: Dir,
-            foodTextureOffset: TextureOffset,
+            foodTexture: raylib.Texture2D,
             screenSize: XY,
         },
         /// state that's only needed for this tick or frame
@@ -103,7 +105,7 @@ fn Game(maxSize: u32) type {
                     .score = 0,
                     .highScore = 0,
                     .dir = .right,
-                    .foodTextureOffset = .{ .scale = SCALE, .texturePos = undefined },
+                    .foodTexture = undefined,
                     .screenSize = screen,
                 },
                 .options = .{
@@ -131,7 +133,8 @@ fn Game(maxSize: u32) type {
                     .foodTextures = foodTextures,
                 },
             };
-            newGame.state.foodTextureOffset = foodTextures.next();
+            // TODO: drawstate
+            newGame.state.foodTexture = foodTextures.next();
             for (newGame.state.snake.segments[0..newGame.state.snake.len], 0..) |*seg, i| {
                 seg.* = .{ .x = @intCast(newGame.state.snake.len - i), .y = 0 };
             }
@@ -338,7 +341,7 @@ fn Game(maxSize: u32) type {
                     .x = rand.intRangeAtMost(i32, 0, game.options.gameSize.x - 1),
                     .y = rand.intRangeAtMost(i32, 0, game.options.gameSize.y - 1),
                 };
-                game.state.foodTextureOffset = foodTextures.next();
+                game.state.foodTexture = foodTextures.next();
             }
 
             // update snake segments
@@ -395,21 +398,18 @@ fn Game(maxSize: u32) type {
             }
 
             const foodPos = game.state.food.toScreenCoords(SCALE);
-            const foodPosRec: raylib.Rectangle = .{
-                .x = foodPos.x,
-                .y = foodPos.y,
-                .width = game.state.foodTextureOffset.scale,
-                .height = game.state.foodTextureOffset.scale,
-            };
-            raylib.DrawTexturePro(
-                game.drawState.foodTextures.spriteSheetTexture,
-                game.state.foodTextureOffset.texturePos,
-                foodPosRec,
-                .{},
-                0,
+            raylib.DrawTextureV(
+                game.state.foodTexture,
+                foodPos,
                 raylib.WHITE,
             );
             if (game.options.shouldShowHitbox) {
+                const foodPosRec: raylib.Rectangle = .{
+                    .x = foodPos.x,
+                    .y = foodPos.y,
+                    .width = SCALE,
+                    .height = SCALE,
+                };
                 raylib.DrawRectangleRec(
                     foodPosRec,
                     raylib.WHITE,
@@ -628,39 +628,37 @@ const TextureOffset = struct {
     texturePos: raylib.Rectangle,
 };
 
-const FoodTextures = struct {
-    const texturesCount = 1;
-    spriteSheetTexture: raylib.Texture2D,
-    textures: [texturesCount]TextureOffset,
-    fn generateFoods() !FoodTextures {
-        //const spritesheetImage = raylib.LoadImageFromMemory(".png", spriteSheetPng, spriteSheetPng.len);
-        const spritesheetImage: raylib.Image = try main2();
-        std.debug.assert(spritesheetImage.data != null);
-        const spriteSheetTexture = raylib.LoadTextureFromImage(spritesheetImage);
-        const avgHeight = SCALE; //px
-        const avgWidth = SCALE; // px
-        // // height=96px, average width=954px/10=95
-        // const textureCount = 10;
-        var self: @This() = .{ .spriteSheetTexture = spriteSheetTexture, .textures = undefined };
-        for (&self.textures, 0..) |*food, i| {
-            const fi: f32 = @floatFromInt(i);
-            food.*.texturePos = .{
-                .x = fi * avgWidth,
-                .y = 0,
-                .width = avgWidth,
-                .height = avgHeight,
-            };
-            food.*.scale = SCALE;
+// @@@: There's gotta be a better way to do this
+fn FoodTexturesG(texturesCount: usize) type {
+    const foodTextures = struct {
+        textures: [texturesCount]raylib.Texture2D,
+        fn init(foodChars: *const [texturesCount]u32) @This() {
+            var self: @This() = undefined;
+            for (&self.textures, foodChars) |*food, foodChar| {
+                std.debug.print("foodChar: {}\n", .{foodChar});
+                const spritesheetImage: raylib.Image = charToImage(foodChar);
+                std.debug.assert(spritesheetImage.data != null);
+                const spriteSheetTexture = raylib.LoadTextureFromImage(spritesheetImage);
+                std.debug.assert(spriteSheetTexture.id != 0);
+                food.* = spriteSheetTexture;
+            }
+            return self;
         }
-        return self;
-    }
-    fn next(self: *const @This()) TextureOffset {
-        return self.textures[rand.intRangeAtMost(u16, 0, texturesCount - 1)];
-    }
-    fn unload(self: *const @This()) void {
-        raylib.UnloadTexture(self.spriteSheetTexture);
-    }
+        fn next(self: *const @This()) raylib.Texture2D {
+            return self.textures[rand.intRangeAtMost(u16, 0, texturesCount - 1)];
+        }
+        fn unload(self: *const @This()) void {
+            //raylib.UnloadTexture(self.spriteSheetTexture);
+            _ = self;
+        }
+    };
+    return foodTextures;
+}
+// @@@: There's gotta be a better way to do this
+const foodSymbols: [67]u32 = .{
+    '🍏', '🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🍈', '🍒', '🍑', '🍍', '🥭', '🥥', '🥝', '🍅', '🍆', '🌽', '🥕', '🥔', '🥬', '🥒', '🥦', '🍞', '🥖', '🥯', '🥨', '🥞', '🧇', '🍳', '🍔', '🍟', '🍕', '🌭', '🥗', '🍝', '🍜', '🍲', '🍣', '🍱', '🍤', '🍙', '🍚', '🍛', '🍥', '🍦', '🍧', '🍨', '🍩', '🍪', '🎂', '🍰', '🧁', '🍫', '🍬', '🍭', '🍮', '🍯', '🥛', '☕', '🍵', '🍺', '🍻', '🥂', '🍷', '🥃',
 };
+const FoodTextures = FoodTexturesG(foodSymbols.len);
 
 fn sign(x: i32) i32 {
     if (x < 0) return -1;
@@ -672,22 +670,27 @@ const c = @cImport({
     @cInclude("stdio.h");
     @cInclude("stdlib.h");
     @cInclude("string.h");
-    @cInclude("ft2build.h");
+});
+const FT = @cImport({
     @cInclude("freetype/freetype.h");
+    @cInclude("ft2build.h");
+    @cInclude("freetype/ftmodapi.h");
+    if (builtin.os.tag == .macos) {
+        @cInclude("rsvg.c");
+    }
 });
 
 // Function to save the RGBA buffer as a PPM file (for visualization)
-fn save_rgba_to_ppm(filename: [*:0]const u8, buffer: [*]u8, 
-                    width: c_int, height: c_int) void {
+fn save_rgba_to_ppm(filename: [*:0]const u8, buffer: [*]u8, width: c_int, height: c_int) void {
     const fp = c.fopen(filename, "wb");
     if (fp == null) {
         _ = c.printf("Failed to open file for writing: %s\n", filename);
         return;
     }
-    
+
     // Write PPM header
     _ = c.fprintf(fp, "P6\n%d %d\n255\n", width, height);
-    
+
     // Write RGB data (ignore alpha)
     var i: c_int = 0;
     while (i < height) : (i += 1) {
@@ -697,73 +700,92 @@ fn save_rgba_to_ppm(filename: [*:0]const u8, buffer: [*]u8,
             const r = @as(u8, buffer[idx]);
             const g = @as(u8, buffer[idx + 1]);
             const b = @as(u8, buffer[idx + 2]);
-            
+
             _ = c.fputc(r, fp);
             _ = c.fputc(g, fp);
             _ = c.fputc(b, fp);
         }
     }
-    
+
     _ = c.fclose(fp);
     _ = c.printf("Saved output to %s\n", filename);
 }
 
-pub fn main2() !raylib.Image {
+pub fn charToImage(character: u32) raylib.Image {
     // Default parameters
-    const font_path = "C:\\Windows\\Fonts\\SEGUIEMJ.TTF";
-    const character: u32 = '😊';
-    const size_px: c_int = SCALE;
-    
+    const font_path = switch (builtin.os.tag) {
+        .windows => "C:\\Windows\\Fonts\\SEGUIEMJ.TTF",
+        .macos => "/System/Library/Fonts/Apple Color Emoji.ttc",
+        else => unreachable(),
+    };
+    // const size_px: c_int = SCALE;
+
     // Initialize FreeType
-    var library: c.FT_Library = undefined;
-    var erro = c.FT_Init_FreeType(&library);
+    var library: FT.FT_Library = undefined;
+    var erro = FT.FT_Init_FreeType(&library);
     if (erro != 0) {
         _ = c.printf("Failed to initialize FreeType: %d\n", erro);
         std.debug.assert(false);
     }
-    
+    if (builtin.os.tag == .macos) {
+        erro = FT.FT_Property_Set(library, "ot-svg", "svg-hooks", &FT.rsvg_hooks);
+        if (erro != 0) {
+            _ = c.printf("Failed to add svg hooks: %d(%s)\n", erro, FT.FT_Error_String(erro));
+            //std.debug.assert(false);
+        }
+    }
+
+    //defer std.debug.assert(FT.FT_Done_FreeType(library) == 0);
+
     // Load font face
-    var face: c.FT_Face = undefined;
-    erro = c.FT_New_Face(library, font_path, 0, &face);
+    var face: FT.FT_Face = undefined;
+    erro = FT.FT_New_Face(library, font_path, 0, &face);
     if (erro != 0) {
-        _ = c.printf("Failed to load font: %d\n", erro);
+        _ = c.printf("Failed to load font: %d(%s)\n", erro, FT.FT_Error_String(erro));
         std.debug.assert(false);
     }
-    
-    // Set font size
-    erro = c.FT_Set_Pixel_Sizes(face, 0, size_px);
-    if (erro != 0) {
-        _ = c.printf("Failed to set font size: %d\n", erro);
-        std.debug.assert(false);
+
+    var i: usize = 0;
+    while (i < face.*.num_fixed_sizes) {
+        defer i += 1;
+        const size: FT.FT_Bitmap_Size = face.*.available_sizes[i];
+        std.debug.print("Size: {}: width = {}, height = {}, x_ppem = {}, y_ppem = {}\n", .{ i, size.width, size.height, size.x_ppem, size.y_ppem });
     }
-    
+    //defer std.debug.assert(FT.FT_Done_Face(face) == 0);
+
     // Get glyph index
-    const glyph_index = c.FT_Get_Char_Index(face, character);
+    const glyph_index = FT.FT_Get_Char_Index(face, character);
     if (glyph_index == 0) {
         _ = c.printf("Character not found in font\n");
-        _ = c.FT_Done_Face(face);
-        _ = c.FT_Done_FreeType(library);
+        _ = FT.FT_Done_Face(face);
+        _ = FT.FT_Done_FreeType(library);
         std.debug.assert(false);
     }
-    
+
+    // Set font size
+    erro = FT.FT_Set_Pixel_Sizes(face, 0, 52);
+    if (erro != 0) {
+        _ = c.printf("Failed to set font size: %d(%s)\n", erro, FT.FT_Error_String(erro));
+        std.debug.assert(false);
+    }
+
     // Load and render the glyph
-    erro = c.FT_Load_Glyph(face, glyph_index, c.FT_LOAD_COLOR);
+    erro = FT.FT_Load_Glyph(face, glyph_index, FT.FT_LOAD_COLOR);
     if (erro != 0) {
-        _ = c.printf("Failed to load glyph: %d\n", erro);
+        _ = c.printf("Failed to load glyph: %d(%s)\n", erro, FT.FT_Error_String(erro));
         std.debug.assert(false);
     }
-    
+
     // Render the glyph to a bitmap with anti-aliasing
-    erro = c.FT_Render_Glyph(face.*.glyph, c.FT_RENDER_MODE_NORMAL);
+    erro = FT.FT_Render_Glyph(face.*.glyph, FT.FT_RENDER_MODE_NORMAL);
     if (erro != 0) {
-        _ = c.printf("Failed to render glyph: %d\n", erro);
-        std.debug.assert(false);
+        _ = c.printf("Failed to render glyph: %d(%s)\n", erro, FT.FT_Error_String(erro));
+        std.debug.assert(erro == 0);
     }
-    
     const bitmap = face.*.glyph.*.bitmap;
 
     // BGRA -> RGBA
-    var i: usize = 0;
+    i = 0;
     while (i < bitmap.width * bitmap.rows * 4) : (i += 4) {
         const r: u8 = bitmap.buffer[i];
         bitmap.buffer[i] = bitmap.buffer[i + 2];
@@ -779,7 +801,7 @@ pub fn main2() !raylib.Image {
     return result;
 }
 
-const SCALE = 150;
+const SCALE = 50;
 pub fn main() !void {
     raylib.SetConfigFlags(raylib.FLAG_WINDOW_TRANSPARENT | raylib.FLAG_WINDOW_RESIZABLE);
     raylib.InitWindow(1280, 800, "snek");
@@ -788,7 +810,7 @@ pub fn main() !void {
 
     const initialScreen: XY = .{ .x = raylib.GetScreenWidth(), .y = raylib.GetScreenHeight() };
 
-    const foodTextures = try FoodTextures.generateFoods();
+    const foodTextures = FoodTextures.init(&foodSymbols);
     defer foodTextures.unload();
 
     raylib.SetTargetFPS(2 * raylib.GetMonitorRefreshRate(raylib.GetCurrentMonitor()));

@@ -18,6 +18,10 @@ pub fn build(b: *std.Build) void {
     if (target.result.isDarwin()) {
         exe.linkFramework("IOKit");
         exe.linkFramework("Cocoa");
+
+        exe.addIncludePath(std.Build.LazyPath{ .cwd_relative = "/opt/homebrew/include/librsvg-2.0/librsvg" });
+        exe.addLibraryPath(std.Build.LazyPath{ .cwd_relative = "/opt/homebrew/lib" });
+        exe.linkSystemLibrary("rsvg-2");
     } else if (target.result.os.tag == .windows) {
         exe.linkSystemLibrary("opengl32");
         exe.linkSystemLibrary("gdi32");
