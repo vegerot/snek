@@ -327,10 +327,6 @@ fn Game(maxSize: u32) type {
                 nextHead.y -= game.options.gameSize.y;
                 game.setTps(game.options.tps - 1);
             }
-            if (snake.isTouchingSelf(nextHead) != 0) {
-                game.log("\t💀 touched yourself\n", .{});
-                game.tickState.loseCnt = snake.isTouchingSelf(nextHead);
-            }
             if (snake.isTouchingFood(game.state.food)) {
                 game.incrementScore();
 
@@ -354,6 +350,10 @@ fn Game(maxSize: u32) type {
                     back.* = front;
                 }
                 head.* = nextHead;
+            }
+            if (snake.isTouchingSelf(nextHead) != 0) {
+                game.log("\t💀 touched yourself\n", .{});
+                game.tickState.loseCnt = snake.isTouchingSelf(nextHead);
             }
             if (game.tickState.loseCnt != 0) {
                 if (!game.options.isGodMode and snake.len >= 2 and game.state.score > 0) {
