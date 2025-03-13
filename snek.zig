@@ -815,7 +815,7 @@ pub fn main() !void {
 
     raylib.SetTargetFPS(2 * raylib.GetMonitorRefreshRate(raylib.GetCurrentMonitor()));
 
-    var snakeImage = raylib.LoadImageFromMemory(".png", snekPng, snekPng.len);
+    var snakeImage = charToImage('🐍');
     std.debug.assert(snakeImage.data != null);
     raylib.ImageFlipHorizontal(&snakeImage);
     const snakeTexture = raylib.LoadTextureFromImage(snakeImage);
