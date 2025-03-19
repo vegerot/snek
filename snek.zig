@@ -411,24 +411,17 @@ fn Game(maxSize: u32) type {
                     raylib.WHITE,
                 );
             }
-            var score: [3]u8 = undefined;
-            const scoreDigits = std.fmt.digits2(game.state.score % 100);
-            score[0] = scoreDigits[0];
-            score[1] = scoreDigits[1];
-            score[2] = 0; // null-terminate
-            raylib.DrawText(&score, 10, 3, 69, raylib.PURPLE);
+            const scoreDigits = scoreToString(game.state.score);
+            raylib.DrawText(&scoreDigits, 10, 3, 69, raylib.PURPLE);
             const shouldDrawHighScore = game.state.score != game.state.highScore;
             if (shouldDrawHighScore) {
-                var highScore: [3]u8 = undefined;
-                const highScoreDigits = std.fmt.digits2(game.state.highScore % 100);
-                highScore[0] = highScoreDigits[0];
-                highScore[1] = highScoreDigits[1];
-                highScore[2] = 0; // null-terminate
+                const highScore = scoreToString(game.state.highScore);
                 raylib.DrawText(&highScore, 10, 75, 33, raylib.BLUE);
             }
+
+            const COLORS = comptime makeTransColors();
             for (snake.segments[0..snake.len], 0..) |seg, p| {
                 const segScreen = seg.toScreenCoords(SCALE);
-                const COLORS = makeTransColors();
                 const isSnakeHead = p == 0;
                 const color = if (isSnakeHead) raylib.WHITE else COLORS[p % COLORS.len];
                 const ticksPerNanoSec = @as(f32, @floatFromInt(game.options.tps)) / std.time.ns_per_s;
@@ -572,6 +565,27 @@ fn Game(maxSize: u32) type {
         }
     };
     return game;
+}
+
+fn scoreToString(score: usize) [3:0]u8 {
+    var ret = [3:0]u8{ 0, 0, 0 };
+    std.debug.assert(score < 1000);
+
+    const scoreAsU8: u8 = @intCast(score);
+
+    const ones = scoreAsU8 % 10;
+    const tens = (scoreAsU8 / 10) % 10;
+    const hundreds = (scoreAsU8 / (10 * 10)) % 10;
+    const scoreDigits: [3]u8 = .{ hundreds, tens, ones };
+    var startIdx: usize = if (scoreDigits[0] != 0) 0 else if (scoreDigits[1] != 0) 1 else 2;
+    var i: usize = 0;
+    while (startIdx < scoreDigits.len) {
+        defer startIdx += 1;
+        defer i += 1;
+        ret[i] = scoreDigits[startIdx] + '0';
+    }
+
+    return ret;
 }
 
 const XY = struct {
