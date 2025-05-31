@@ -1,5 +1,5 @@
 .{
-    .name = "snek",
+    .name = .snek,
     .version = "0.0.0",
     .paths = .{
         "snek.zig",
@@ -9,4 +9,5 @@
     .dependencies = .{
         .raylib = .{ .path = "./raylib" },
     },
+    .fingerprint = 0xd86d1176857ecf02,
 }

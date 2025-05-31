@@ -15,7 +15,7 @@ pub fn build(b: *std.Build) void {
     exe.linkLibC();
     exe.linkSystemLibrary("m");
 
-    if (target.result.isDarwin()) {
+    if (target.result.os.tag.isDarwin()) {
         exe.linkFramework("IOKit");
         exe.linkFramework("Cocoa");
     } else if (target.result.os.tag == .windows) {
