@@ -679,7 +679,7 @@ fn sign(x: i32) i32 {
 
 const SCALE = 50;
 pub fn main() !void {
-    raylib.SetConfigFlags(raylib.FLAG_WINDOW_TRANSPARENT | raylib.FLAG_WINDOW_RESIZABLE);
+    raylib.SetConfigFlags(raylib.FLAG_WINDOW_TRANSPARENT | raylib.FLAG_WINDOW_RESIZABLE | raylib.FLAG_WINDOW_HIGHDPI);
     raylib.InitWindow(1280, 800, "snek");
     defer raylib.CloseWindow();
     std.debug.assert(raylib.IsWindowReady());
