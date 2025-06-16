@@ -17,4 +17,3 @@ git clone --recurse-submodules git@github.com:vegerot/snek.git
 ```bash
 make play
 ```
-
