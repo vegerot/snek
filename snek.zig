@@ -545,9 +545,7 @@ fn Game(maxSize: u32) type {
             self.options.gameSize = .{ .x = @divFloor(self.state.screenSize.x, SCALE), .y = @divFloor(self.state.screenSize.y, SCALE) };
 
             for (self.state.snake.segments[0..self.state.snake.len], 0..) |*seg, i| {
-                if (i != 0) {
-                    seg.* = .{ .x = @mod(@as(i32, @intCast(self.state.snake.len - i)), self.options.gameSize.x - 2), .y = @divFloor(@as(i32, @intCast(i)), self.options.gameSize.y - 2) };
-                }
+                seg.* = .{ .x = @mod(@as(i32, @intCast(self.state.snake.len - i)), self.options.gameSize.x - 2), .y = @divFloor(@as(i32, @intCast(i)), self.options.gameSize.y - 2) };
             }
             self.state.dir = .right;
             self.tickState.inputDir = .{ .none, .none };
