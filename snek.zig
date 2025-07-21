@@ -306,7 +306,7 @@ fn Game(maxSize: u32) type {
                 .down => .{ .x = 0, .y = 1 },
                 .left => .{ .x = -1, .y = 0 },
                 .right => .{ .x = 1, .y = 0 },
-                .none => unreachable(),
+                .none => game.Unreachable(),
             };
 
             const head = &snake.segments[0];
@@ -473,7 +473,7 @@ fn Game(maxSize: u32) type {
                         rotation = 90;
                     } else {
                         game.log("wrapDir: {}\n", .{wrapDir});
-                        unreachable();
+                        game.Unreachable();
                     }
                 } else {
                     const prevSeg = &snake.segments[p - 1];
@@ -562,6 +562,10 @@ fn Game(maxSize: u32) type {
             }
             std.debug.print("\t", .{});
             std.debug.print(fmt, args);
+        }
+        fn Unreachable(self: *@This()) noreturn {
+            self.log("game: {}\nsegments: {any}\n", .{ self, self.state.snake.segments[0..self.state.snake.len] });
+            unreachable();
         }
     };
     return game;
