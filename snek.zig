@@ -71,6 +71,7 @@ fn Game(maxSize: u32) type {
         drawState: struct {
             snakeTexture: raylib.Texture,
             foodTextures: FoodTextures,
+            currentMonitor: i8,
         },
         options: struct {
             gameSize: struct { x: i32, y: i32 },
@@ -125,6 +126,7 @@ fn Game(maxSize: u32) type {
                 .drawState = .{
                     .snakeTexture = snakeTexture,
                     .foodTextures = foodTextures,
+                    .currentMonitor = @intCast(raylib.GetCurrentMonitor()),
                 },
             };
             newGame.state.foodTextureOffset = foodTextures.next();
@@ -260,6 +262,11 @@ fn Game(maxSize: u32) type {
             }
             if (raylib.IsWindowResized()) {
                 game.resizeGameToWindow();
+            }
+            const currentMonitor: i8 = @intCast(raylib.GetCurrentMonitor());
+            if (currentMonitor != game.drawState.currentMonitor) {
+                game.drawState.currentMonitor = currentMonitor;
+                raylib.SetTargetFPS(2 * raylib.GetMonitorRefreshRate(currentMonitor));
             }
 
             const dontRunPhysics = (game.options.isPaused and !game.tickState.shouldAdvanceFrame);
