@@ -524,6 +524,9 @@ fn Game(maxSize: u32) type {
             }
             if (game.options.showFps) {
                 raylib.DrawFPS(game.state.screenSize.x - 100, 0);
+                const tpsChars = std.fmt.digits2(@intCast(game.options.tps));
+                var tpsString: [7]u8 = .{ tpsChars[0], tpsChars[1], ' ', 't', 'p', 's', 0 };
+                raylib.DrawText(&tpsString, game.state.screenSize.x - 80, 30, 22, raylib.BLUE);
             }
         }
         fn toggleFullscreen(self: *@This()) void {
