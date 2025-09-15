@@ -693,7 +693,9 @@ fn sign(x: i32) i32 {
 
 const SCALE = 50;
 pub fn main() !void {
-    raylib.SetConfigFlags(raylib.FLAG_WINDOW_TRANSPARENT | raylib.FLAG_WINDOW_RESIZABLE | raylib.FLAG_WINDOW_HIGHDPI);
+    raylib.SetConfigFlags(raylib.FLAG_WINDOW_TRANSPARENT | raylib.FLAG_WINDOW_RESIZABLE);
+    // Setting high DPI breaks resizing.  See https://github.com/raysan5/raylib/issues/4908
+    // raylib.SetConfigFlags(raylib.FLAG_WINDOW_HIGHDPI);
     raylib.InitWindow(1280, 800, "snek");
     defer raylib.CloseWindow();
     std.debug.assert(raylib.IsWindowReady());
