@@ -5,9 +5,11 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
     const exe = b.addExecutable(.{
         .name = "snek",
-        .root_source_file = b.path("snek.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("snek.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
     const check_step = b.step("check", "");
     check_step.dependOn(&exe.step);

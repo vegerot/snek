@@ -130,9 +130,9 @@ fn Game(maxSize: u32) type {
                 },
             };
             newGame.state.foodTextureOffset = foodTextures.next();
-            for (newGame.state.snake.segments[0..newGame.state.snake.len], 0..) |*seg, i| {
-                seg.* = .{ .x = @intCast(newGame.state.snake.len - i), .y = 0 };
-            }
+            // note: even though the initial length is 1, I initialize the first TWO positions because they're needed for interpolation
+            newGame.state.snake.segments[0] = .{ .x = 1, .y = 0 };
+            newGame.state.snake.segments[1] = .{ .x = 0, .y = 0 };
             return newGame;
         }
         fn incrementScore(self: *@This()) void {
