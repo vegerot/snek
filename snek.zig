@@ -705,8 +705,6 @@ pub fn main() !void {
     const foodTextures = try FoodTextures.generateFoods();
     defer foodTextures.unload();
 
-    raylib.SetTargetFPS(2 * raylib.GetMonitorRefreshRate(raylib.GetCurrentMonitor()));
-
     var snakeImage = raylib.LoadImageFromMemory(".png", snekPng, snekPng.len);
     std.debug.assert(snakeImage.data != null);
     raylib.ImageFlipHorizontal(&snakeImage);
@@ -718,6 +716,8 @@ pub fn main() !void {
     // TODO: don't hardcode game size
     var game = Game(1 << 15).init(initialScreen, snakeTexture, foodTextures);
     defer game.log("{}\n", .{game});
+
+    raylib.SetTargetFPS(2 * raylib.GetMonitorRefreshRate(game.drawState.currentMonitor));
 
     var timeWhenLastUpdated = try std.time.Instant.now();
 
