@@ -67,6 +67,7 @@ fn Game(maxSize: u32) type {
             inputDir: [2]Dir,
             bufferedDir: Dir,
             loseCnt: usize,
+            wasWindowFocusedLastFrame: bool,
         },
         drawState: struct {
             snakeTexture: raylib.Texture,
@@ -122,6 +123,7 @@ fn Game(maxSize: u32) type {
                     .bufferedDir = .none,
                     .loseCnt = 0,
                     .didLogThisTick = false,
+                    .wasWindowFocusedLastFrame = true,
                 },
                 .drawState = .{
                     .snakeTexture = snakeTexture,
@@ -257,16 +259,26 @@ fn Game(maxSize: u32) type {
             }
         }
         fn maybeUpdate(game: *@This(), timeSinceLastUpdateNs: u64) bool {
-            if (!raylib.IsWindowFocused()) {
-                game.options.isPaused = true;
-            }
             if (raylib.IsWindowResized()) {
                 game.resizeGameToWindow();
             }
+
             const currentMonitor: i8 = @intCast(raylib.GetCurrentMonitor());
             if (currentMonitor != game.drawState.currentMonitor) {
                 game.drawState.currentMonitor = currentMonitor;
                 raylib.SetTargetFPS(2 * raylib.GetMonitorRefreshRate(currentMonitor));
+            }
+
+            if (game.tickState.wasWindowFocusedLastFrame != raylib.IsWindowFocused()) {
+                game.log("focus state changed\n", .{});
+                if (raylib.IsWindowFocused()) {
+                    game.options.isPaused = false;
+                    raylib.SetTargetFPS(2 * raylib.GetMonitorRefreshRate(currentMonitor));
+                } else {
+                    game.options.isPaused = true;
+                    raylib.SetTargetFPS(1);
+                }
+                game.tickState.wasWindowFocusedLastFrame = raylib.IsWindowFocused();
             }
 
             const dontRunPhysics = (game.options.isPaused and !game.tickState.shouldAdvanceFrame);
@@ -445,7 +457,7 @@ fn Game(maxSize: u32) type {
                     expectedPosition.x = snake.segments[p].x + interpolateHorizAmt;
                     expectedPosition.y = snake.segments[p].y + interpolateVertAmt;
                 }
-                const shouldInterpolate = game.options.shouldInterpolate and isFpsLargerThanTps;
+                const shouldInterpolate = game.options.shouldInterpolate and isFpsLargerThanTps and !game.options.isPaused;
                 const interpolatedPosition: raylib.Vector2 = raylib.Vector2Lerp(
                     segScreen,
                     expectedPosition.toScreenCoords(SCALE),
