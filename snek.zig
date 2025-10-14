@@ -73,6 +73,8 @@ fn Game(maxSize: u32) type {
             snakeTexture: raylib.Texture,
             foodTextures: FoodTextures,
             currentMonitor: i8,
+            frameTimes: [1000]f32,
+            frameTimeIndex: usize,
         },
         options: struct {
             gameSize: struct { x: i32, y: i32 },
@@ -129,6 +131,8 @@ fn Game(maxSize: u32) type {
                     .snakeTexture = snakeTexture,
                     .foodTextures = foodTextures,
                     .currentMonitor = @intCast(raylib.GetCurrentMonitor()),
+                    .frameTimes = std.mem.zeroes([1000]f32),
+                    .frameTimeIndex = 0,
                 },
             };
             newGame.state.foodTextureOffset = foodTextures.next();
@@ -535,7 +539,14 @@ fn Game(maxSize: u32) type {
                 }
             }
             if (game.options.showFps) {
+                const p99Fps = game.calculateP99Fps();
                 raylib.DrawFPS(game.state.screenSize.x - 100, 0);
+
+                // Draw P99 FPS in top-right corner
+                var p99Buffer: [20]u8 = undefined;
+                const p99Text = std.fmt.bufPrint(&p99Buffer, "P99: {d:.1} FPS", .{p99Fps}) catch "P99: N/A";
+                raylib.DrawText(p99Text.ptr, game.state.screenSize.x - 100, 50, 20, raylib.RED);
+
                 const tpsChars = std.fmt.digits2(@intCast(game.options.tps));
                 var tpsString: [7]u8 = .{ tpsChars[0], tpsChars[1], ' ', 't', 'p', 's', 0 };
                 raylib.DrawText(&tpsString, game.state.screenSize.x - 80, 30, 22, raylib.BLUE);
@@ -584,6 +595,17 @@ fn Game(maxSize: u32) type {
             }
             std.debug.print("\t", .{});
             std.debug.print(fmt, args);
+        }
+        fn calculateP99Fps(self: *@This()) f32 {
+            self.drawState.frameTimes[self.drawState.frameTimeIndex] = raylib.GetFrameTime();
+            self.drawState.frameTimeIndex = (self.drawState.frameTimeIndex + 1) % self.drawState.frameTimes.len;
+
+            // make sure to copy frameTimes so we can sort them
+            var sortedTimes = self.drawState.frameTimes;
+            std.mem.sort(f32, &sortedTimes, {}, std.sort.asc(f32));
+
+            const p99Index = @divFloor(99 * sortedTimes.len, 100);
+            return 1 / sortedTimes[p99Index];
         }
         fn Unreachable(self: *@This()) noreturn {
             self.log("game: {}\nsegments: {any}\n", .{ self, self.state.snake.segments[0..self.state.snake.len] });
