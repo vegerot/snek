@@ -2,3 +2,4 @@
 zig-out
 snek
 .venv
+.DS_Store
