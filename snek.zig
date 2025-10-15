@@ -551,10 +551,10 @@ fn Game(maxSize: u32) type {
                 var tpsString: [7]u8 = .{ tpsChars[0], tpsChars[1], ' ', 't', 'p', 's', 0 };
                 raylib.DrawText(&tpsString, game.state.screenSize.x - 80, 30, 22, raylib.BLUE);
 
-                // Draw frametime chart in top-right corner
+                // Draw FPS chart in top-right corner
                 const chartWidth: i32 = 200;
                 const chartHeight: i32 = 60;
-                const chartX = game.state.screenSize.x - chartWidth - 100;
+                const chartX = game.state.screenSize.x - chartWidth - 32;
                 const chartY = 80;
 
                 // Draw chart background
@@ -562,20 +562,29 @@ fn Game(maxSize: u32) type {
                 raylib.DrawRectangleLines(chartX, chartY, chartWidth, chartHeight, raylib.DARKGRAY);
 
                 // Draw chart title
-                raylib.DrawText("Frametime (ms)", chartX + 5, chartY + 5, 10, raylib.WHITE);
+                raylib.DrawText("FPS", chartX + 5, chartY + 5, 10, raylib.WHITE);
 
-                // Draw frametime data
+                // Draw FPS data
                 const maxSamples = @min(chartWidth, @as(i32, @intCast(game.drawState.frameTimes.len)));
-                var maxFrameTime: f32 = 0.001; // Minimum scale (1ms)
+                var minFps: f32 = 1000.0; // Start with a high value
+                var maxFps: f32 = 0.0; // Start with a low value
 
-                // Find max frametime for scaling
+                // Find min/max FPS for scaling
                 for (0..@intCast(maxSamples)) |i| {
                     const idx = (game.drawState.frameTimeIndex + game.drawState.frameTimes.len - i - 1) % game.drawState.frameTimes.len;
                     const frameTime = game.drawState.frameTimes[idx];
-                    if (frameTime > maxFrameTime) maxFrameTime = frameTime;
+                    if (frameTime > 0.0001) { // Avoid division by zero or very small values
+                        const fps = 1.0 / frameTime;
+                        if (fps < minFps) minFps = fps;
+                        if (fps > maxFps) maxFps = fps;
+                    }
                 }
 
-                // Draw horizontal lines (time scale)
+                // Ensure reasonable min/max values
+                if (maxFps < 30.0) maxFps = 30.0;
+                if (minFps > maxFps - 10.0) minFps = @max(0.0, maxFps - 30.0);
+
+                // Draw horizontal lines (FPS scale)
                 const scaleLines = 4;
                 for (0..scaleLines) |i| {
                     const y = chartY + chartHeight - @as(i32, @intCast(i)) * (chartHeight / scaleLines);
@@ -583,12 +592,13 @@ fn Game(maxSize: u32) type {
                     raylib.DrawLine(chartX, y, chartX + chartWidth, y, raylib.Color{ .r = 200, .g = 200, .b = 200, .a = alpha });
 
                     // Draw scale labels
-                    var scaleBuffer: [10]u8 = undefined;
-                    const scaleText = std.fmt.bufPrint(&scaleBuffer, "{d:.3}", .{maxFrameTime * @as(f32, @floatFromInt(i)) / @as(f32, @floatFromInt(scaleLines - 1))}) catch "?";
+                    var scaleBuffer: [10]u8 = .{0} ** 10;
+                    const fpsValue = minFps + (maxFps - minFps) * @as(f32, @floatFromInt(i)) / @as(f32, @floatFromInt(scaleLines - 1));
+                    const scaleText = std.fmt.bufPrint(&scaleBuffer, "{d:.1}", .{fpsValue}) catch "?";
                     raylib.DrawText(scaleText.ptr, chartX + chartWidth + 2, y - 5, 10, raylib.LIGHTGRAY);
                 }
 
-                // Draw frametime graph
+                // Draw FPS graph
                 for (0..@intCast(maxSamples - 1)) |i| {
                     const idx1 = (game.drawState.frameTimeIndex + game.drawState.frameTimes.len - i - 1) % game.drawState.frameTimes.len;
                     const idx2 = (game.drawState.frameTimeIndex + game.drawState.frameTimes.len - i - 2) % game.drawState.frameTimes.len;
@@ -596,21 +606,28 @@ fn Game(maxSize: u32) type {
                     const frameTime1 = game.drawState.frameTimes[idx1];
                     const frameTime2 = game.drawState.frameTimes[idx2];
 
+                    const fps1 = if (frameTime1 > 0.0001) 1.0 / frameTime1 else 0.0;
+                    const fps2 = if (frameTime2 > 0.0001) 1.0 / frameTime2 else 0.0;
+
                     const x1 = chartX + chartWidth - @as(i32, @intCast(i));
                     const x2 = chartX + chartWidth - @as(i32, @intCast(i + 1));
-                    const y1 = chartY + chartHeight - @as(i32, @intCast(@as(u32, @intFromFloat((frameTime1 / maxFrameTime) * @as(f32, @floatFromInt(chartHeight))))));
-                    const y2 = chartY + chartHeight - @as(i32, @intCast(@as(u32, @intFromFloat((frameTime2 / maxFrameTime) * @as(f32, @floatFromInt(chartHeight))))));
 
-                    // Color based on frametime (green for low, yellow for medium, red for high)
-                    const targetFrameTime: f32 = 1.0 / 60.0; // 60 FPS target
-                    const frameTimeRatio = frameTime1 / targetFrameTime;
+                    // Calculate y position based on FPS value (higher FPS = higher on chart)
+                    const normalizedFps1 = (fps1 - minFps) / (maxFps - minFps);
+                    const normalizedFps2 = (fps2 - minFps) / (maxFps - minFps);
 
-                    var lineColor = raylib.GREEN;
-                    if (frameTimeRatio > 1.5) {
-                        lineColor = raylib.RED;
-                    } else if (frameTimeRatio > 1.0) {
-                        lineColor = raylib.YELLOW;
-                    }
+                    const y1 = chartY + chartHeight - @as(i32, @intFromFloat(normalizedFps1 * @as(f32, @floatFromInt(chartHeight))));
+                    const y2 = chartY + chartHeight - @as(i32, @intFromFloat(normalizedFps2 * @as(f32, @floatFromInt(chartHeight))));
+
+                    // Color based on FPS (green for high, yellow for medium, red for low)
+                    const threshold1 = 60.0; // 60 FPS
+                    const threshold2 = 30.0; // 30 FPS
+                    const lineColor = if (fps1 >= threshold1)
+                        raylib.GREEN
+                    else if (fps1 >= threshold2)
+                        raylib.YELLOW
+                    else
+                        raylib.RED;
 
                     raylib.DrawLine(x1, y1, x2, y2, lineColor);
                 }
