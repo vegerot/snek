@@ -550,6 +550,70 @@ fn Game(maxSize: u32) type {
                 const tpsChars = std.fmt.digits2(@intCast(game.options.tps));
                 var tpsString: [7]u8 = .{ tpsChars[0], tpsChars[1], ' ', 't', 'p', 's', 0 };
                 raylib.DrawText(&tpsString, game.state.screenSize.x - 80, 30, 22, raylib.BLUE);
+
+                // Draw frametime chart in top-right corner
+                const chartWidth: i32 = 200;
+                const chartHeight: i32 = 60;
+                const chartX = game.state.screenSize.x - chartWidth - 100;
+                const chartY = 80;
+
+                // Draw chart background
+                raylib.DrawRectangle(chartX, chartY, chartWidth, chartHeight, raylib.Color{ .r = 0, .g = 0, .b = 0, .a = 100 });
+                raylib.DrawRectangleLines(chartX, chartY, chartWidth, chartHeight, raylib.DARKGRAY);
+
+                // Draw chart title
+                raylib.DrawText("Frametime (ms)", chartX + 5, chartY + 5, 10, raylib.WHITE);
+
+                // Draw frametime data
+                const maxSamples = @min(chartWidth, @as(i32, @intCast(game.drawState.frameTimes.len)));
+                var maxFrameTime: f32 = 0.001; // Minimum scale (1ms)
+
+                // Find max frametime for scaling
+                for (0..@intCast(maxSamples)) |i| {
+                    const idx = (game.drawState.frameTimeIndex + game.drawState.frameTimes.len - i - 1) % game.drawState.frameTimes.len;
+                    const frameTime = game.drawState.frameTimes[idx];
+                    if (frameTime > maxFrameTime) maxFrameTime = frameTime;
+                }
+
+                // Draw horizontal lines (time scale)
+                const scaleLines = 4;
+                for (0..scaleLines) |i| {
+                    const y = chartY + chartHeight - @as(i32, @intCast(i)) * (chartHeight / scaleLines);
+                    const alpha: u8 = if (i == 0) 200 else 100;
+                    raylib.DrawLine(chartX, y, chartX + chartWidth, y, raylib.Color{ .r = 200, .g = 200, .b = 200, .a = alpha });
+
+                    // Draw scale labels
+                    var scaleBuffer: [10]u8 = undefined;
+                    const scaleText = std.fmt.bufPrint(&scaleBuffer, "{d:.3}", .{maxFrameTime * @as(f32, @floatFromInt(i)) / @as(f32, @floatFromInt(scaleLines - 1))}) catch "?";
+                    raylib.DrawText(scaleText.ptr, chartX + chartWidth + 2, y - 5, 10, raylib.LIGHTGRAY);
+                }
+
+                // Draw frametime graph
+                for (0..@intCast(maxSamples - 1)) |i| {
+                    const idx1 = (game.drawState.frameTimeIndex + game.drawState.frameTimes.len - i - 1) % game.drawState.frameTimes.len;
+                    const idx2 = (game.drawState.frameTimeIndex + game.drawState.frameTimes.len - i - 2) % game.drawState.frameTimes.len;
+
+                    const frameTime1 = game.drawState.frameTimes[idx1];
+                    const frameTime2 = game.drawState.frameTimes[idx2];
+
+                    const x1 = chartX + chartWidth - @as(i32, @intCast(i));
+                    const x2 = chartX + chartWidth - @as(i32, @intCast(i + 1));
+                    const y1 = chartY + chartHeight - @as(i32, @intCast(@as(u32, @intFromFloat((frameTime1 / maxFrameTime) * @as(f32, @floatFromInt(chartHeight))))));
+                    const y2 = chartY + chartHeight - @as(i32, @intCast(@as(u32, @intFromFloat((frameTime2 / maxFrameTime) * @as(f32, @floatFromInt(chartHeight))))));
+
+                    // Color based on frametime (green for low, yellow for medium, red for high)
+                    const targetFrameTime: f32 = 1.0 / 60.0; // 60 FPS target
+                    const frameTimeRatio = frameTime1 / targetFrameTime;
+
+                    var lineColor = raylib.GREEN;
+                    if (frameTimeRatio > 1.5) {
+                        lineColor = raylib.RED;
+                    } else if (frameTimeRatio > 1.0) {
+                        lineColor = raylib.YELLOW;
+                    }
+
+                    raylib.DrawLine(x1, y1, x2, y2, lineColor);
+                }
             }
         }
         fn toggleFullscreen(self: *@This()) void {
