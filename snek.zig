@@ -78,6 +78,7 @@ fn Game(maxSize: u32) type {
         },
         options: struct {
             gameSize: struct { x: i32, y: i32 },
+            isFpsUncapped: bool,
             isGodMode: bool,
             isTransparent: bool,
             isPaused: bool,
@@ -108,6 +109,7 @@ fn Game(maxSize: u32) type {
                 },
                 .options = .{
                     .gameSize = .{ .x = @divFloor(screen.x, SCALE), .y = @divFloor(screen.y, SCALE) },
+                    .isFpsUncapped = false,
                     .isGodMode = false,
                     .isTransparent = true,
                     .isPaused = false,
@@ -221,6 +223,15 @@ fn Game(maxSize: u32) type {
             game.tickState.shouldAdvanceFrame = raylib.IsKeyPressed(raylib.KEY_N);
 
             if (raylib.IsKeyPressed(raylib.KEY_I)) game.options.shouldInterpolate = !game.options.shouldInterpolate;
+
+            if (raylib.IsKeyPressed(raylib.KEY_U)) {
+                game.options.isFpsUncapped = !game.options.isFpsUncapped;
+                if (game.options.isFpsUncapped) {
+                    raylib.SetTargetFPS(0);
+                } else {
+                    raylib.SetTargetFPS(2 * raylib.GetMonitorRefreshRate(game.drawState.currentMonitor));
+                }
+            }
 
             const isShiftPressed = raylib.IsKeyDown(raylib.KEY_RIGHT_SHIFT) or raylib.IsKeyDown(raylib.KEY_LEFT_SHIFT);
             if (!isShiftPressed and raylib.IsKeyPressed(raylib.KEY_PERIOD)) {
