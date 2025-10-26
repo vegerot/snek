@@ -556,11 +556,11 @@ fn Game(maxSize: u32) type {
                 // Draw P99 FPS in top-right corner
                 var p99Buffer: [20]u8 = undefined;
                 const p99Text = std.fmt.bufPrint(&p99Buffer, "P99: {d:.1} FPS", .{p99Fps}) catch "P99: N/A";
-                raylib.DrawText(p99Text.ptr, game.state.screenSize.x - 100, 50, 20, raylib.RED);
+                raylib.DrawText(p99Text.ptr, game.state.screenSize.x - 100, 30, 20, raylib.RED);
 
                 const tpsChars = std.fmt.digits2(@intCast(game.options.tps));
                 var tpsString: [7]u8 = .{ tpsChars[0], tpsChars[1], ' ', 't', 'p', 's', 0 };
-                raylib.DrawText(&tpsString, game.state.screenSize.x - 80, 30, 22, raylib.BLUE);
+                raylib.DrawText(&tpsString, game.state.screenSize.x - 80, 50, 22, raylib.BLUE);
 
                 // Draw FPS chart in top-right corner
                 const chartWidth: i32 = 200;
