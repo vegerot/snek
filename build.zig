@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
@@ -18,6 +19,19 @@ pub fn build(b: *std.Build) void {
     exe.linkSystemLibrary("m");
 
     if (target.result.os.tag.isDarwin()) {
+        // FIXME: I'm just using two possible variatons (cpu and os) but there are more
+        // This also won't work if you manually specify the exact same target triple as Zig's default
+        const is_cross_compiling = target.result.cpu.arch != builtin.target.cpu.arch or target.result.os.tag != builtin.target.os.tag;
+        if (is_cross_compiling) {
+            // Zig does not automatically include system library paths when cross-compiling
+            var code: u8 = 0;
+            const sdk_out = std.Build.runAllowFail(b, &.{ "xcrun", "--show-sdk-path" }, &code, .Inherit) catch null;
+            if (sdk_out) |s| {
+                const sdk = std.mem.trim(u8, s, " \n\r\t");
+                exe.root_module.addSystemFrameworkPath(.{ .cwd_relative = std.Build.fmt(b, "{s}/System/Library/Frameworks", .{sdk}) });
+                exe.root_module.addLibraryPath(.{ .cwd_relative = std.Build.fmt(b, "{s}/usr/lib", .{sdk}) });
+            }
+        }
         exe.linkFramework("IOKit");
         exe.linkFramework("Cocoa");
     } else if (target.result.os.tag == .windows) {
