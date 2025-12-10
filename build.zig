@@ -51,4 +51,12 @@ pub fn build(b: *std.Build) void {
     const game_exe = b.addRunArtifact(exe);
     const play_step = b.step("play", "");
     play_step.dependOn(&game_exe.step);
+
+    const macos_step = b.step("macOS", "Build and copy executable into snek.app bundle");
+    const ensure_dir = b.addSystemCommand(&.{ "mkdir", "-p", "snek.app/Contents/MacOS" });
+    macos_step.dependOn(&ensure_dir.step);
+    macos_step.dependOn(b.getInstallStep());
+    const installed_bin = b.getInstallPath(.bin, exe.out_filename);
+    const copy_cmd = b.addSystemCommand(&.{ "cp", "-f", installed_bin, "snek.app/Contents/MacOS/snek" });
+    macos_step.dependOn(&copy_cmd.step);
 }
