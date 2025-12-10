@@ -592,8 +592,8 @@ fn Game(maxSize: u32) type {
                 }
 
                 // Ensure reasonable min/max values
-                if (maxFps < 30.0) maxFps = 30.0;
-                if (minFps > maxFps - 10.0) minFps = @max(0.0, maxFps - 30.0);
+                if (maxFps < 60) maxFps = 60;
+                if (minFps > maxFps - 30) minFps = @max(0.0, maxFps - 60);
 
                 // Draw horizontal lines (FPS scale)
                 const scaleLines = 4;
