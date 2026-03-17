@@ -56,6 +56,7 @@ fn Game(maxSize: u32) type {
             score: usize,
             highScore: usize,
             dir: Dir,
+            prevDir: Dir,
             foodTextureOffset: TextureOffset,
             screenSize: XY,
         },
@@ -104,6 +105,7 @@ fn Game(maxSize: u32) type {
                     .score = 0,
                     .highScore = 0,
                     .dir = .right,
+                    .prevDir = .right,
                     .foodTextureOffset = .{ .scale = SCALE, .texturePos = undefined },
                     .screenSize = screen,
                 },
@@ -320,6 +322,8 @@ fn Game(maxSize: u32) type {
 
             const isVert = game.state.dir == .up or game.state.dir == .down;
 
+            game.state.prevDir = game.state.dir;
+
             const inputDir = game.tickState.inputDir[0];
             const isInputDirOppositeDir = if (isVert) inputDir == .up or inputDir == .down else inputDir == .left or inputDir == .right;
             const bufferedDir = game.tickState.bufferedDir;
@@ -484,59 +488,100 @@ fn Game(maxSize: u32) type {
                 const isHead = p == 0;
                 const isPrevSegmentAcrossWrap = p > 0 and snake.segments[p].sub(&snake.segments[p - 1]).magnitude2() > 2;
                 if (isHead) {
-                    const dir = game.state.dir;
-                    if (dir == .right) {
-                        rotation = 0;
-                    } else if (dir == .down) {
-                        rotation = 90;
-                    } else if (dir == .left) {
-                        rotation = 180;
-                    } else if (dir == .up) {
-                        rotation = 270;
-                    }
-                } else if (isPrevSegmentAcrossWrap) {
-                    const subbed = snake.segments[p - 1].sub(&snake.segments[p]);
-                    const wrapDir = .{ .x = sign(subbed.x), .y = sign(subbed.y) };
-                    if (wrapDir.x == 1 and wrapDir.y == 0) {
-                        rotation = 180;
-                    } else if (wrapDir.x == 0 and wrapDir.y == 1) {
-                        rotation = 270;
-                    } else if (wrapDir.x == -1 and wrapDir.y == 0) {
-                        rotation = 0;
-                    } else if (wrapDir.x == 0 and wrapDir.y == -1) {
-                        rotation = 90;
-                    } else {
-                        game.log("wrapDir: {}\n", .{wrapDir});
-                        game.Unreachable();
-                    }
+                    const currRot: f32 = switch (game.state.dir) {
+                        .right => 0,
+                        .down => 90,
+                        .left => 180,
+                        .up => 270,
+                        .none => unreachable,
+                    };
+                    const prevRot: f32 = switch (game.state.prevDir) {
+                        .right => 0,
+                        .down => 90,
+                        .left => 180,
+                        .up => 270,
+                        .none => unreachable,
+                    };
+                    var diff = currRot - prevRot;
+                    if (diff > 180) diff -= 360;
+                    if (diff < -180) diff += 360;
+                    const lerpFactor: f32 = if (shouldInterpolate) 1.0 - pctClamped else 1.0;
+                    rotation = prevRot + diff * lerpFactor;
                 } else {
-                    const prevSeg = &snake.segments[p - 1];
-                    const diff = seg.sub(prevSeg);
-                    if (diff.x == 1) {
-                        rotation = 180;
-                    } else if (diff.x == -1) {
-                        rotation = 0;
-                    } else if (diff.y == 1) {
-                        rotation = 270;
-                    } else if (diff.y == -1) {
-                        rotation = 90;
-                    }
-                }
-                const origin: raylib.Vector2 = if (rotation == 0)
-                    .{ .x = 0, .y = 0 }
-                else if (rotation == 90)
-                    .{ .x = 0, .y = SCALE }
-                else if (rotation == 180)
-                    .{ .x = SCALE, .y = SCALE }
-                else
-                    .{ .x = SCALE, .y = 0 };
+                    // Body/tail segment: compute current and previous rotation, then lerp
 
+                    // Current rotation: direction from this segment relative to the one ahead (p-1)
+                    var currRotation: f32 = 0;
+                    if (isPrevSegmentAcrossWrap) {
+                        const subbed = snake.segments[p - 1].sub(&snake.segments[p]);
+                        const wrapDir = .{ .x = sign(subbed.x), .y = sign(subbed.y) };
+                        if (wrapDir.x == 1 and wrapDir.y == 0) {
+                            currRotation = 180;
+                        } else if (wrapDir.x == 0 and wrapDir.y == 1) {
+                            currRotation = 270;
+                        } else if (wrapDir.x == -1 and wrapDir.y == 0) {
+                            currRotation = 0;
+                        } else if (wrapDir.x == 0 and wrapDir.y == -1) {
+                            currRotation = 90;
+                        } else {
+                            game.log("wrapDir: {}\n", .{wrapDir});
+                            game.Unreachable();
+                        }
+                    } else {
+                        const prevSeg = &snake.segments[p - 1];
+                        const d = seg.sub(prevSeg);
+                        if (d.x == 1) {
+                            currRotation = 180;
+                        } else if (d.x == -1) {
+                            currRotation = 0;
+                        } else if (d.y == 1) {
+                            currRotation = 270;
+                        } else if (d.y == -1) {
+                            currRotation = 90;
+                        }
+                    }
+
+                    // Previous rotation: before this tick, segment p was at segments[p+1]
+                    // and p-1 was at segments[p], so old diff = segments[p+1] - segments[p]
+                    var prevRotation: f32 = currRotation;
+                    if (isNextSegmentAcrossWrap) {
+                        const nd = snake.segments[p + 1].sub(&snake.segments[p]);
+                        const wd = .{ .x = -sign(nd.x), .y = -sign(nd.y) };
+                        if (wd.x == 1) {
+                            prevRotation = 180;
+                        } else if (wd.x == -1) {
+                            prevRotation = 0;
+                        } else if (wd.y == 1) {
+                            prevRotation = 270;
+                        } else if (wd.y == -1) {
+                            prevRotation = 90;
+                        }
+                    } else {
+                        const nd = snake.segments[p + 1].sub(&snake.segments[p]);
+                        if (nd.x == 1) {
+                            prevRotation = 180;
+                        } else if (nd.x == -1) {
+                            prevRotation = 0;
+                        } else if (nd.y == 1) {
+                            prevRotation = 270;
+                        } else if (nd.y == -1) {
+                            prevRotation = 90;
+                        }
+                    }
+
+                    var angleDiff = currRotation - prevRotation;
+                    if (angleDiff > 180) angleDiff -= 360;
+                    if (angleDiff < -180) angleDiff += 360;
+                    const lerpFactor: f32 = if (shouldInterpolate) 1.0 - pctClamped else 1.0;
+                    rotation = prevRotation + angleDiff * lerpFactor;
+                }
+                // Use center-based origin so any rotation angle stays in the correct grid cell
                 const snakeTexture = game.drawState.snakeTexture;
                 raylib.DrawTexturePro(
                     snakeTexture,
                     .{ .x = 0, .y = 0, .width = @floatFromInt(snakeTexture.width), .height = @floatFromInt(snakeTexture.height) },
-                    .{ .x = interpolatedPosition.x, .y = interpolatedPosition.y, .height = SCALE, .width = SCALE },
-                    origin,
+                    .{ .x = interpolatedPosition.x + SCALE / 2.0, .y = interpolatedPosition.y + SCALE / 2.0, .height = SCALE, .width = SCALE },
+                    .{ .x = SCALE / 2.0, .y = SCALE / 2.0 },
                     rotation,
                     color,
                 );
