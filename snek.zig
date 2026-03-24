@@ -220,6 +220,16 @@ fn Game(maxSize: u32) type {
                 game.* = Game(maxSize).init(game.state.screenSize, game.drawState.snakeTexture, game.drawState.foodTextures);
             }
 
+            if (raylib.IsKeyPressed(raylib.KEY_O)) {
+                game.log("\ttoggle always on top\n", .{});
+                const isAlwaysOnTop = (raylib.IsWindowState(raylib.FLAG_WINDOW_TOPMOST));
+                if (isAlwaysOnTop) {
+                    raylib.ClearWindowState(raylib.FLAG_WINDOW_TOPMOST | raylib.FLAG_WINDOW_MOUSE_PASSTHROUGH);
+                } else {
+                    raylib.SetWindowState(raylib.FLAG_WINDOW_TOPMOST | raylib.FLAG_WINDOW_MOUSE_PASSTHROUGH);
+                }
+            }
+
             // debug stuff
 
             game.tickState.shouldAdvanceFrame = raylib.IsKeyPressed(raylib.KEY_N);
