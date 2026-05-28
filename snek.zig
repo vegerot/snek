@@ -917,8 +917,3 @@ pub fn main() !void {
         game.draw(timeSinceLastUpdate);
     }
 }
-
-// ideas:
-// slower
-// always on top
-// click through
