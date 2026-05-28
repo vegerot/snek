@@ -56,6 +56,23 @@ fn getCurrentMonitor() c_int {
     return raylib.GetCurrentMonitor();
 }
 
+/// Wayland can't tell us which monitor the window is on, so fall back to the
+/// highest refresh rate across all connected monitors. Correct on single- and
+/// matched-multi-monitor setups; over-renders on mixed-rate setups, which is
+/// harmless visually.
+fn getMonitorRefreshRate(monitor: c_int) c_int {
+    if (!isWayland()) return raylib.GetMonitorRefreshRate(monitor);
+
+    const count = raylib.GetMonitorCount();
+    var max: c_int = 0;
+    var i: c_int = 0;
+    while (i < count) : (i += 1) {
+        const r = raylib.GetMonitorRefreshRate(i);
+        if (r > max) max = r;
+    }
+    return if (max > 0) max else 60;
+}
+
 fn makeTransColors() [7]raylib.Color {
     var COLORS = [_]raylib.Color{ raylib.RED, raylib.ORANGE, raylib.YELLOW, raylib.GREEN, raylib.BLUE, raylib.MAGENTA, raylib.VIOLET };
     for (&COLORS) |*color| {
@@ -257,7 +274,7 @@ fn Game(maxSize: u32) type {
                 if (game.options.isFpsUncapped) {
                     raylib.SetTargetFPS(0);
                 } else {
-                    raylib.SetTargetFPS(2 * raylib.GetMonitorRefreshRate(game.drawState.currentMonitor));
+                    raylib.SetTargetFPS(2 * getMonitorRefreshRate(game.drawState.currentMonitor));
                 }
             }
 
@@ -309,14 +326,14 @@ fn Game(maxSize: u32) type {
             const currentMonitor: i8 = @intCast(getCurrentMonitor());
             if (currentMonitor != game.drawState.currentMonitor) {
                 game.drawState.currentMonitor = currentMonitor;
-                raylib.SetTargetFPS(2 * raylib.GetMonitorRefreshRate(currentMonitor));
+                raylib.SetTargetFPS(2 * getMonitorRefreshRate(currentMonitor));
             }
 
             if (game.tickState.wasWindowFocusedLastFrame != raylib.IsWindowFocused()) {
                 game.log("focus state changed\n", .{});
                 if (raylib.IsWindowFocused()) {
                     game.options.isPaused = false;
-                    raylib.SetTargetFPS(2 * raylib.GetMonitorRefreshRate(currentMonitor));
+                    raylib.SetTargetFPS(2 * getMonitorRefreshRate(currentMonitor));
                 } else {
                     game.options.isPaused = true;
                     raylib.SetTargetFPS(1);
@@ -912,7 +929,7 @@ pub fn main() !void {
     var game = Game(1 << 15).init(initialScreen, snakeTexture, foodTextures);
     defer game.log("{}\n", .{game});
 
-    raylib.SetTargetFPS(2 * raylib.GetMonitorRefreshRate(game.drawState.currentMonitor));
+    raylib.SetTargetFPS(2 * getMonitorRefreshRate(game.drawState.currentMonitor));
 
     var timeWhenLastUpdated = try std.time.Instant.now();
 
