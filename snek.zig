@@ -40,6 +40,22 @@ fn buildEnumFromC(comptime import: anytype, comptime prefix: []const u8) type {
 
 const Key = buildEnumFromC(raylib, "KEY");
 
+/// GLFW's Wayland backend doesn't support querying window position, so
+/// `GetCurrentMonitor()` spams a warning every call. Skip it on Wayland and
+/// pretend we're always on monitor 0.
+var is_wayland_cache: ?bool = null;
+fn isWayland() bool {
+    if (is_wayland_cache) |v| return v;
+    const v = @import("builtin").os.tag == .linux and std.posix.getenv("WAYLAND_DISPLAY") != null;
+    is_wayland_cache = v;
+    return v;
+}
+
+fn getCurrentMonitor() c_int {
+    if (isWayland()) return 0;
+    return raylib.GetCurrentMonitor();
+}
+
 fn makeTransColors() [7]raylib.Color {
     var COLORS = [_]raylib.Color{ raylib.RED, raylib.ORANGE, raylib.YELLOW, raylib.GREEN, raylib.BLUE, raylib.MAGENTA, raylib.VIOLET };
     for (&COLORS) |*color| {
@@ -134,7 +150,7 @@ fn Game(maxSize: u32) type {
                 .drawState = .{
                     .snakeTexture = snakeTexture,
                     .foodTextures = foodTextures,
-                    .currentMonitor = @intCast(raylib.GetCurrentMonitor()),
+                    .currentMonitor = @intCast(getCurrentMonitor()),
                     .frameTimes = std.mem.zeroes([1000]f32),
                     .frameTimeIndex = 0,
                 },
@@ -290,7 +306,7 @@ fn Game(maxSize: u32) type {
                 game.resizeGameToWindow();
             }
 
-            const currentMonitor: i8 = @intCast(raylib.GetCurrentMonitor());
+            const currentMonitor: i8 = @intCast(getCurrentMonitor());
             if (currentMonitor != game.drawState.currentMonitor) {
                 game.drawState.currentMonitor = currentMonitor;
                 raylib.SetTargetFPS(2 * raylib.GetMonitorRefreshRate(currentMonitor));
