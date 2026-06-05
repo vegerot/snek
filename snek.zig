@@ -1,5 +1,11 @@
 const std = @import("std");
-const rand = std.crypto.random;
+const Io = std.Io;
+
+var io_threaded = Io.Threaded.init_single_threaded;
+const io = io_threaded.io();
+
+const rng_source: std.Random.IoSource = .{ .io = io };
+const rand = rng_source.interface();
 
 const raylib = @cImport({
     @cInclude("raylib.h");
@@ -10,7 +16,8 @@ const spriteSheetPng = @embedFile("./emoji.png");
 const snekPng = @embedFile("./🐍.png");
 
 fn buildEnumFromC(comptime import: anytype, comptime prefix: []const u8) type {
-    comptime var enum_fields: [1024]std.builtin.Type.EnumField = undefined;
+    comptime var enum_names: [1024][]const u8 = undefined;
+    comptime var enum_values: [1024]u16 = undefined;
     comptime var count = 0;
 
     inline for (std.meta.declarations(import)) |decl| {
@@ -20,22 +27,13 @@ fn buildEnumFromC(comptime import: anytype, comptime prefix: []const u8) type {
 
         @setEvalBranchQuota(10000);
         if (std.mem.eql(u8, decl.name[0..prefix.len], prefix)) {
-            enum_fields[count] = .{
-                .name = decl.name[prefix.len + 1 ..],
-                .value = @field(import, decl.name),
-            };
+            enum_names[count] = decl.name[prefix.len + 1 ..];
+            enum_values[count] = @field(import, decl.name);
             count += 1;
         }
     }
 
-    return @Type(
-        .{ .Enum = .{
-            .tag_type = u16,
-            .fields = enum_fields[0..count],
-            .decls = &.{},
-            .is_exhaustive = true,
-        } },
-    );
+    return @Enum(u16, .exhaustive, enum_names[0..count], enum_values[0..count]);
 }
 
 const Key = buildEnumFromC(raylib, "KEY");
@@ -931,7 +929,7 @@ pub fn main() !void {
 
     raylib.SetTargetFPS(2 * getMonitorRefreshRate(game.drawState.currentMonitor));
 
-    var timeWhenLastUpdated = try std.time.Instant.now();
+    var timeWhenLastUpdated = std.Io.Timestamp.now(io, .awake);
 
     while (!raylib.WindowShouldClose()) {
 
@@ -939,8 +937,8 @@ pub fn main() !void {
         game.input();
 
         // UPDATE
-        const now = try std.time.Instant.now();
-        var timeSinceLastUpdate = now.since(timeWhenLastUpdated);
+        const now = std.Io.Timestamp.now(io, .awake);
+        var timeSinceLastUpdate: u64 = @intCast(now.nanoseconds - timeWhenLastUpdated.nanoseconds);
         const didUpdate = game.maybeUpdate(timeSinceLastUpdate);
         if (didUpdate) {
             timeWhenLastUpdated = now;

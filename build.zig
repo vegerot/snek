@@ -10,13 +10,13 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path("snek.zig"),
             .target = target,
             .optimize = optimize,
+            .link_libc = true,
         }),
     });
     const check_step = b.step("check", "");
     check_step.dependOn(&exe.step);
 
-    exe.linkLibC();
-    exe.linkSystemLibrary("m");
+    exe.root_module.linkSystemLibrary("m", .{});
 
     if (target.result.os.tag.isDarwin()) {
         // FIXME: I'm just using two possible variatons (cpu and os) but there are more
@@ -25,19 +25,19 @@ pub fn build(b: *std.Build) void {
         if (is_cross_compiling) {
             // Zig does not automatically include system library paths when cross-compiling
             var code: u8 = 0;
-            const sdk_out = std.Build.runAllowFail(b, &.{ "xcrun", "--show-sdk-path" }, &code, .Inherit) catch null;
+            const sdk_out = std.Build.runAllowFail(b, &.{ "xcrun", "--show-sdk-path" }, &code, .inherit) catch null;
             if (sdk_out) |s| {
                 const sdk = std.mem.trim(u8, s, " \n\r\t");
                 exe.root_module.addSystemFrameworkPath(.{ .cwd_relative = std.Build.fmt(b, "{s}/System/Library/Frameworks", .{sdk}) });
                 exe.root_module.addLibraryPath(.{ .cwd_relative = std.Build.fmt(b, "{s}/usr/lib", .{sdk}) });
             }
         }
-        exe.linkFramework("IOKit");
-        exe.linkFramework("Cocoa");
+        exe.root_module.linkFramework("IOKit", .{});
+        exe.root_module.linkFramework("Cocoa", .{});
     } else if (target.result.os.tag == .windows) {
-        exe.linkSystemLibrary("opengl32");
-        exe.linkSystemLibrary("gdi32");
-        exe.linkSystemLibrary("winmm");
+        exe.root_module.linkSystemLibrary("opengl32", .{});
+        exe.root_module.linkSystemLibrary("gdi32", .{});
+        exe.root_module.linkSystemLibrary("winmm", .{});
     }
 
     const raylib = b.dependency("raylib", .{
@@ -45,7 +45,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .linux_display_backend = .Both,
     });
-    exe.linkLibrary(raylib.artifact("raylib"));
+    exe.root_module.linkLibrary(raylib.artifact("raylib"));
 
     b.installArtifact(exe);
 
