@@ -5,16 +5,20 @@ import sys
 
 from pilmoji import Pilmoji
 from pilmoji.source import MicrosoftEmojiSource, AppleEmojiSource, GoogleEmojiSource
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageFont
 
 
 def create_png_from_char(char, emoji_source, font_size, output_path):
     font = ImageFont.load_default(font_size)
 
     # Calculate the width and height of the text to be drawn
-    bbox_left, bbox_top, bbox_right, bbox_bottom  = font.getbbox(char)
+    bbox_left, bbox_top, bbox_right, bbox_bottom = (int(v) for v in font.getbbox(char))
 
-    image = Image.new("RGBA", (2* bbox_right, int(bbox_bottom*1.1)), "#00000000")
+    image_width = 2 * bbox_right
+    image_height = int(bbox_bottom * 1.1)
+    print(f"Creating image with flavor: {emoji_source} {image_width}x{image_height}")
+
+    image = Image.new("RGBA", (image_width, image_height), "#00000000")
     draw = Pilmoji(image, source=emoji_source)
 
     draw.text(
@@ -62,7 +66,7 @@ def main():
 """
 I created the textures in this game with
     ./text-to-png \
-          '🍏🍎🍐🍊🍋🍌🍉🍇🍓🍈🍒🍑🍍🥭🥥🥝🍅🍆🌽🥕🥔🥬🥒🥦🍞🥖🥯🥨🥞🧇🍳🍔🍟🍕🌭🥗🍝🍜🍲🍣🍱🍤🍙🍚🍛🍥🍦🍧🍨🍩🍪🎂🍰🧁🍫🍬🍭🍮🍯🥛☕🍵🍺🍻🥂🍷🥃' \
+          '🍇🍈🍉🍊🍋🍋‍🟩🍌🍍🥭🍎🍏🍐🍑🍒🍓🫐🥝🍅🫒🥥🥑🍆🥔🥕🌽🌶️🫑🥒🥬🥦🧄🧅🍄🥜🫘🌰🫚🫛🍞🥐🥖🫓🥨🥯🥞🧇🧀🍖🍗🥩🥓🍔🍟🍕🌭🥪🌮🌯🫔🥙🧆🥚🍳🥘🍲🫕🥣🥗🍿🧈🧂🥫🍱🍘🍙🍚🍛🍜🍝🍠🍢🍣🍤🍥🥮🍡🥟🥠🥡🦀🦞🦐🦑🦪🍦🍧🍨🍩🍪🎂🍰🧁🥧🍫🍬🍭🍮🍯🍼🥛☕🫖🍵🍶🍾🍷🍸🍹🍺🍻🥂🥃🫗🥤🧋🧃🧉🧊' \
             --output=emoji.png
 """
 if __name__ == "__main__":
