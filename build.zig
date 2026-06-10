@@ -43,6 +43,7 @@ pub fn build(b: *std.Build) void {
     const raylib = b.dependency("raylib", .{
         .target = target,
         .optimize = optimize,
+        .platform = .rgfw,
         .linux_display_backend = .Both,
     });
     exe.root_module.linkLibrary(raylib.artifact("raylib"));
