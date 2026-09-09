@@ -36,20 +36,32 @@ def create_png_from_char(char, emoji_source, font_size, output_path):
         image.show()
 
 
-
 def main():
     parser = argparse.ArgumentParser(
         description="Create a PNG image from a text character."
     )
     parser.add_argument(
-        "input", type=str, default="🍇🍈🍉🍊🍋🍋‍🟩🍌🍍🥭🍎🍏🍐🍑🍒🍓🫐🥝🍅🫒🥥🥑🍆🥔🥕🌽🌶️🫑🥒🥬🥦🧄🧅🍄🥜🫘🌰🫚🫛🍞🥐🥖🫓🥨🥯🥞🧇🧀🍖🍗🥩🥓🍔🍟🍕🌭🥪🌮🌯🫔🥙🧆🥚🍳🥘🍲🫕🥣🥗🍿🧈🧂🥫🍱🍘🍙🍚🍛🍜🍝🍠🍢🍣🍤🍥🥮🍡🥟🥠🥡🦀🦞🦐🦑🦪🍦🍧🍨🍩🍪🎂🍰🧁🥧🍫🍬🍭🍮🍯🍼🥛☕🫖🍵🍶🍾🍷🍸🍹🍺🍻🥂🥃🫗🥤🧋🧃🧉🧊", nargs="?", help="The character to create a PNG from."
+        "input",
+        type=str,
+        default="🍇🍈🍉🍊🍋🍋‍🟩🍌🍍🥭🍎🍏🍐🍑🍒🍓🫐🥝🍅🫒🥥🥑🍆🥔🥕🌽🌶️🫑🥒🥬🥦🧄🧅🍄🥜🫘🌰🫚🫛🍞🥐🥖🫓🥨🥯🥞🧇🧀🍖🍗🥩🥓🍔🍟🍕🌭🥪🌮🌯🫔🥙🧆🥚🍳🥘🍲🫕🥣🥗🍿🧈🧂🥫🍱🍘🍙🍚🍛🍜🍝🍠🍢🍣🍤🍥🥮🍡🥟🥠🥡🦀🦞🦐🦑🦪🍦🍧🍨🍩🍪🎂🍰🧁🥧🍫🍬🍭🍮🍯🍼🥛☕🫖🍵🍶🍾🍷🍸🍹🍺🍻🥂🥃🫗🥤🧋🧃🧉🧊",
+        nargs="?",
+        help="The character to create a PNG from.",
     )
     # pick flavor based on OS
-    default_flavor = AppleEmojiSource if "darwin" in sys.platform else (
-        MicrosoftEmojiSource if ("win32" in sys.platform and False) # FIXME: https://github.com/jay3332/pilmoji/issues/38#issuecomment-2692015761
-        else GoogleEmojiSource
+    default_flavor = (
+        AppleEmojiSource
+        if "darwin" in sys.platform
+        else (
+            MicrosoftEmojiSource
+            if (
+                "win32" in sys.platform and False
+            )  # FIXME: https://github.com/jay3332/pilmoji/issues/38#issuecomment-2692015761
+            else GoogleEmojiSource
+        )
     )
-    parser.add_argument("--flavor", type=str, default=default_flavor, help="Emoji flavor.")
+    parser.add_argument(
+        "--flavor", type=str, default=default_flavor, help="Emoji flavor."
+    )
     parser.add_argument("--fontsize", type=int, default=96, help="Font size.")
     parser.add_argument("--output", type=str, help="Output file path.")
 
