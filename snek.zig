@@ -38,38 +38,39 @@ fn buildEnumFromC(comptime import: anytype, comptime prefix: []const u8) type {
 
 const Key = buildEnumFromC(raylib, "KEY");
 
-/// GLFW's Wayland backend doesn't support querying window position, so
-/// `GetCurrentMonitor()` spams a warning every call. Skip it on Wayland and
-/// pretend we're always on monitor 0.
-var is_wayland_cache: ?bool = null;
-fn isWayland() bool {
-    if (is_wayland_cache) |v| return v;
-    const v = @import("builtin").os.tag == .linux and std.posix.getenv("WAYLAND_DISPLAY") != null;
-    is_wayland_cache = v;
-    return v;
-}
+/// What the display backend can tell us about the monitors.
+const Monitors = struct {
+    /// GLFW's Wayland backend doesn't support querying window position, so
+    /// `GetCurrentMonitor()` spams a warning every call and returns a guess.
+    /// When we can't track it, we pretend we're always on monitor 0 and use
+    /// the fastest refresh rate of all of them.
+    canTrackCurrent: bool,
 
-fn getCurrentMonitor() c_int {
-    if (isWayland()) return 0;
-    return raylib.GetCurrentMonitor();
-}
-
-/// Wayland can't tell us which monitor the window is on, so fall back to the
-/// highest refresh rate across all connected monitors. Correct on single- and
-/// matched-multi-monitor setups; over-renders on mixed-rate setups, which is
-/// harmless visually.
-fn getMonitorRefreshRate(monitor: c_int) c_int {
-    if (!isWayland()) return raylib.GetMonitorRefreshRate(monitor);
-
-    const count = raylib.GetMonitorCount();
-    var max: c_int = 0;
-    var i: c_int = 0;
-    while (i < count) : (i += 1) {
-        const r = raylib.GetMonitorRefreshRate(i);
-        if (r > max) max = r;
+    fn detect(environ: std.process.Environ) Monitors {
+        if (@import("builtin").os.tag != .linux) return .{ .canTrackCurrent = true };
+        return .{ .canTrackCurrent = environ.getPosix("WAYLAND_DISPLAY") == null };
     }
-    return if (max > 0) max else 60;
-}
+
+    fn current(monitors: Monitors) c_int {
+        if (!monitors.canTrackCurrent) return 0;
+        return raylib.GetCurrentMonitor();
+    }
+
+    /// The fallback is correct on single- and matched-multi-monitor setups.
+    /// It over-renders on mixed-rate setups, which is harmless visually.
+    fn refreshRate(monitors: Monitors, monitor: c_int) c_int {
+        if (monitors.canTrackCurrent) return raylib.GetMonitorRefreshRate(monitor);
+
+        const count = raylib.GetMonitorCount();
+        var max: c_int = 0;
+        var i: c_int = 0;
+        while (i < count) : (i += 1) {
+            const r = raylib.GetMonitorRefreshRate(i);
+            if (r > max) max = r;
+        }
+        return if (max > 0) max else 60;
+    }
+};
 
 fn makeTransColors() [7]raylib.Color {
     var COLORS = [_]raylib.Color{ raylib.RED, raylib.ORANGE, raylib.YELLOW, raylib.GREEN, raylib.BLUE, raylib.MAGENTA, raylib.VIOLET };
@@ -104,6 +105,7 @@ fn Game(maxSize: u32) type {
         drawState: struct {
             snakeTexture: raylib.Texture,
             foodTextures: FoodTextures,
+            monitors: Monitors,
             currentMonitor: i8,
             frameTimes: [1000]f32,
             frameTimeIndex: usize,
@@ -121,7 +123,7 @@ fn Game(maxSize: u32) type {
             tps: u32,
             showFps: bool,
         },
-        fn init(screen: XY, snakeTexture: raylib.Texture, foodTextures: FoodTextures) @This() {
+        fn init(screen: XY, snakeTexture: raylib.Texture, foodTextures: FoodTextures, monitors: Monitors) @This() {
             var newGame: Game(maxSize) = .{
                 .state = .{
                     .snake = .{
@@ -165,7 +167,8 @@ fn Game(maxSize: u32) type {
                 .drawState = .{
                     .snakeTexture = snakeTexture,
                     .foodTextures = foodTextures,
-                    .currentMonitor = @intCast(getCurrentMonitor()),
+                    .monitors = monitors,
+                    .currentMonitor = @intCast(monitors.current()),
                     .frameTimes = std.mem.zeroes([1000]f32),
                     .frameTimeIndex = 0,
                 },
@@ -193,6 +196,11 @@ fn Game(maxSize: u32) type {
             // one at once, which we don't do yet
             if (snake.len >= 1) snake.segments[snake.len] = snake.segments[snake.len - 1];
             if (snake.len >= 2) snake.segments[snake.len - 1] = snake.segments[snake.len - 2];
+        }
+        /// Draw at twice the refresh rate of the monitor that shows the window.
+        fn resetTargetFps(self: *const @This()) void {
+            const drawState = self.drawState;
+            raylib.SetTargetFPS(2 * drawState.monitors.refreshRate(drawState.currentMonitor));
         }
         fn setTps(self: *@This(), tps: u32) void {
             if (tps >= 1) {
@@ -248,7 +256,7 @@ fn Game(maxSize: u32) type {
 
             if (raylib.IsKeyPressed(raylib.KEY_R)) {
                 game.log("\tdebug: reset\n", .{});
-                game.* = Game(maxSize).init(game.state.screenSize, game.drawState.snakeTexture, game.drawState.foodTextures);
+                game.* = Game(maxSize).init(game.state.screenSize, game.drawState.snakeTexture, game.drawState.foodTextures, game.drawState.monitors);
             }
 
             if (raylib.IsKeyPressed(raylib.KEY_O)) {
@@ -272,7 +280,7 @@ fn Game(maxSize: u32) type {
                 if (game.options.isFpsUncapped) {
                     raylib.SetTargetFPS(0);
                 } else {
-                    raylib.SetTargetFPS(2 * getMonitorRefreshRate(game.drawState.currentMonitor));
+                    game.resetTargetFps();
                 }
             }
 
@@ -321,17 +329,19 @@ fn Game(maxSize: u32) type {
                 game.resizeGameToWindow();
             }
 
-            const currentMonitor: i8 = @intCast(getCurrentMonitor());
-            if (currentMonitor != game.drawState.currentMonitor) {
-                game.drawState.currentMonitor = currentMonitor;
-                raylib.SetTargetFPS(2 * getMonitorRefreshRate(currentMonitor));
+            if (game.drawState.monitors.canTrackCurrent) {
+                const currentMonitor: i8 = @intCast(game.drawState.monitors.current());
+                if (currentMonitor != game.drawState.currentMonitor) {
+                    game.drawState.currentMonitor = currentMonitor;
+                    game.resetTargetFps();
+                }
             }
 
             if (game.tickState.wasWindowFocusedLastFrame != raylib.IsWindowFocused()) {
                 game.log("focus state changed\n", .{});
                 if (raylib.IsWindowFocused()) {
                     game.options.isPaused = false;
-                    raylib.SetTargetFPS(2 * getMonitorRefreshRate(currentMonitor));
+                    game.resetTargetFps();
                 } else {
                     game.options.isPaused = true;
                     raylib.SetTargetFPS(1);
@@ -904,7 +914,9 @@ fn sign(x: i32) i32 {
 }
 
 const SCALE = 50;
-pub fn main() !void {
+pub fn main(init: std.process.Init.Minimal) !void {
+    const monitors: Monitors = .detect(init.environ);
+
     raylib.SetConfigFlags(raylib.FLAG_WINDOW_TRANSPARENT | raylib.FLAG_WINDOW_RESIZABLE | raylib.FLAG_WINDOW_HIGHDPI);
     raylib.InitWindow(1280, 800, "snek");
     defer raylib.CloseWindow();
@@ -924,10 +936,10 @@ pub fn main() !void {
     std.debug.assert(snakeTexture.width == snakeTexture.height);
 
     // TODO: don't hardcode game size
-    var game = Game(1 << 15).init(initialScreen, snakeTexture, foodTextures);
+    var game = Game(1 << 15).init(initialScreen, snakeTexture, foodTextures, monitors);
     defer game.log("{}\n", .{game});
 
-    raylib.SetTargetFPS(2 * getMonitorRefreshRate(game.drawState.currentMonitor));
+    game.resetTargetFps();
 
     var timeWhenLastUpdated = std.Io.Timestamp.now(io, .awake);
 
